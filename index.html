@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Validador Profesional</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root { 
+            --ticket-blue: #0d47a1; 
+            --orden-blue: #bbdefb;  
+            --success-bg: #a5d6a7;  
+            --zebra-gray: #e0e0e0; 
+            --border: #bcbcbc;
+        }
+        
+        body { font-family: 'Segoe UI', sans-serif; background: #eceff1; margin: 0; padding: 10px; padding-bottom: 110px; }
+        .card { background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); padding: 12px; }
+        
+        /* BOTÓN DE CARGA PEQUEÑO */
+        .upload-area { border: 2px dashed #1a73e8; padding: 10px; text-align: center; border-radius: 8px; cursor: pointer; margin-bottom: 15px; background: #f1f8ff; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .upload-area h3 { margin: 0; color: #1a73e8; font-size: 0.9rem; }
+        
+        .table-wrapper { width: 100%; overflow-x: auto; border: 1px solid var(--border); border-radius: 4px; }
+        table { border-collapse: collapse; width: 100%; min-width: 900px; background: white; }
+        
+        th { background: #263238; color: white; padding: 10px; font-size: 11px; text-transform: uppercase; position: sticky; top: 0; z-index: 10; }
+        td { padding: 10px; border: 1px solid #cfd8dc; font-size: 13px; color: #212121; }
+
+        /* Estilo Cebra */
+        tr:nth-child(even) { background-color: var(--zebra-gray) !important; }
+        
+        /* Columnas Mágicas */
+        .col-ticket { background-color: var(--ticket-blue) !important; color: white !important; font-weight: bold; text-align: center; }
+        .col-orden { background-color: var(--orden-blue) !important; color: #0d47a1 !important; font-weight: bold; text-align: center; }
+        
+        tr.checked { background-color: var(--success-bg) !important; }
+        
+        .btn-confirm { display: none; background: #e65100; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 11px; }
+
+        /* BARRA INFERIOR */
+        .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #263238; display: flex; padding: 10px; gap: 8px; z-index: 1000; align-items: center; }
+        .btn { padding: 12px 8px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; color: white; font-size: 12px; flex: 1; }
+        .btn-undo { background: #5c6bc0; flex: 0.5; }
+        .btn-redo { background: #5c6bc0; flex: 0.5; }
+        .btn-print { background: #546e7a; }
+        .btn-excel { background: #2e7d32; }
+        .btn-clear { background: #c62828; flex: 0.3; }
+
+        .counter { position: absolute; top: -22px; left: 50%; transform: translateX(-50%); background: #ffd600; color: #000; padding: 2px 15px; border-radius: 10px; font-weight: bold; font-size: 11px; white-space: nowrap; }
+
+        @media print {
+            .bottom-bar, .upload-area, .btn-confirm, th:first-child, td:first-child { display: none !important; }
+            td { -webkit-print-color-adjust: exact; }
+            .col-ticket { background-color: #0d47a1 !important; color: white !important; }
+            .col-orden { background-color: #bbdefb !important; color: #0d47a1 !important; }
+            tr:nth-child(even) { background-color: #e0e0e0 !important; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div class="upload-area" onclick="document.getElementById('fileIn').click()">
+        <input type="file" id="fileIn" accept=".xlsx, .xls, .csv" style="display:none">
+        <h3>📂 Subir Archivo</h3>
+        <span id="fileNameDisplay" style="color:#666; font-size:0.7rem;">(Sin cargar)</span>
+    </div>
+
+    <div class="table-wrapper">
+        <table id="mainTable">
+            <thead id="head"></thead>
+            <tbody id="body"></tbody>
+        </table>
+    </div>
+</div>
+
+<div class="bottom-bar">
+    <div id="count" class="counter">0 de 0 OK</div>
+    <button onclick="undo()" class="btn btn-undo" title="Deshacer">↶</button>
+    <button onclick="redo()" class="btn btn-redo" title="Rehacer">↷</button>
+    <button onclick="window.print()" class="btn btn-print">🖨️ Imprimir</button>
+    <button onclick="exportarExcel()" class="btn btn-excel">💾 Excel</button>
+    <button onclick="borrarProgreso()" class="btn btn-clear">🗑️</button>
+</div>
+
+<script>
+    let rowsData = [];
+    let activeCols = [];
+    let checkedIndices = new Set();
+    let currentFileName = "";
+    
+    // Historial para Deshacer/Rehacer
+    let history = [];
+    let historyStep = -1;
+
+    document.getElementById('fileIn').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if(!file) return;
+        currentFileName = file.name;
+        document.getElementById('fileNameDisplay').innerText = currentFileName;
+        
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            const wb = XLSX.read(new Uint8Array(evt.target.result), {type: 'array'});
+            const raw = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header: 1, defval: ""});
+            processData(raw);
+        };
+        reader.readAsArrayBuffer(file);
+    });
+
+    function processData(raw) {
+        let hIdx = raw.findIndex(r => r.some(c => String(c).toUpperCase().includes("TICKET")));
+        if(hIdx === -1) return alert("No se encontró columna TICKET");
+
+        let headerRow = raw[hIdx];
+        activeCols = [];
+        let map = {};
+        headerRow.forEach((c, i) => {
+            let name = String(c).trim().replace(/\n/g, " ");
+            if(name !== "") { activeCols.push(name); map[name] = i; }
+        });
+
+        rowsData = [];
+        raw.slice(hIdx + 1).forEach(row => {
+            if(!row[map["TICKET"]]) return;
+            let tickets = String(row[map["TICKET"]]).split(/\s+/).filter(t => t.length > 2);
+            tickets.forEach(t => {
+                let obj = {};
+                activeCols.forEach(col => {
+                    let val = row[map[col]];
+                    if(col.toUpperCase().includes("FECHA") && !isNaN(val) && val !== "") {
+                        val = new Date(Math.round((val - 25569) * 86400 * 1000)).toLocaleDateString('es-ES');
+                    }
+                    obj[col] = val;
+                });
+                obj.TICKET = t;
+                rowsData.push(obj);
+            });
+        });
+
+        const saved = localStorage.getItem('progress_' + currentFileName);
+        checkedIndices = saved ? new Set(JSON.parse(saved)) : new Set();
+        
+        // Inicializar historial
+        history = [JSON.stringify([...checkedIndices])];
+        historyStep = 0;
+        
+        render();
+    }
+
+    function render() {
+        const head = document.getElementById('head');
+        const body = document.getElementById('body');
+        head.innerHTML = `<tr><th>Acción</th>${activeCols.map(c => `<th>${c}</th>`).join('')}</tr>`;
+        
+        body.innerHTML = rowsData.map((row, i) => {
+            const isChecked = checkedIndices.has(i);
+            return `
+            <tr id="row-${i}" class="${isChecked ? 'checked' : ''}" onclick="showConfirm(${i})">
+                <td style="text-align:center;">
+                    <button id="btn-c-${i}" class="btn-confirm" onclick="confirmRow(event, ${i})">OK?</button>
+                    <span id="lbl-${i}">${isChecked ? '✅' : '📑'}</span>
+                </td>
+                ${activeCols.map(c => {
+                    let cls = (c.toUpperCase() === "TICKET") ? "col-ticket" : (c.toUpperCase().includes("LABORATORIO") ? "col-orden" : "");
+                    return `<td class="${cls}">${row[c]}</td>`;
+                }).join('')}
+            </tr>`;
+        }).join('');
+        saveProgress();
+        updateCounter();
+    }
+
+    function showConfirm(i) {
+        document.querySelectorAll('.btn-confirm').forEach(b => b.style.display = 'none');
+        document.querySelectorAll('span[id^="lbl-"]').forEach(s => s.style.display = 'inline');
+        if(checkedIndices.has(i)) {
+            if(confirm("¿Quitar marcado?")) {
+                checkedIndices.delete(i);
+                addToHistory();
+                render();
+            }
+        } else {
+            document.getElementById(`btn-c-${i}`).style.display = 'inline-block';
+            document.getElementById(`lbl-${i}`).style.display = 'none';
+        }
+    }
+
+    function confirmRow(e, i) {
+        e.stopPropagation();
+        checkedIndices.add(i);
+        addToHistory();
+        render();
+    }
+
+    function addToHistory() {
+        const state = JSON.stringify([...checkedIndices]);
+        if (state === history[historyStep]) return;
+        
+        history = history.slice(0, historyStep + 1);
+        history.push(state);
+        historyStep++;
+        
+        // Limitar historial a 30 pasos para no saturar memoria
+        if(history.length > 30) { history.shift(); historyStep--; }
+    }
+
+    function undo() {
+        if (historyStep > 0) {
+            historyStep--;
+            checkedIndices = new Set(JSON.parse(history[historyStep]));
+            render();
+        }
+    }
+
+    function redo() {
+        if (historyStep < history.length - 1) {
+            historyStep++;
+            checkedIndices = new Set(JSON.parse(history[historyStep]));
+            render();
+        }
+    }
+
+    function saveProgress() {
+        if(currentFileName) {
+            localStorage.setItem('progress_' + currentFileName, JSON.stringify([...checkedIndices]));
+        }
+    }
+
+    function borrarProgreso() {
+        if(confirm("¿Borrar todo el progreso de este archivo?")) {
+            checkedIndices.clear();
+            addToHistory();
+            render();
+        }
+    }
+
+    function updateCounter() {
+        document.getElementById('count').innerText = `${checkedIndices.size} de ${rowsData.length} validados`;
+    }
+
+    function exportarExcel() {
+        if(checkedIndices.size === 0) return alert("No hay datos validados");
+        const selected = [...checkedIndices].map(i => rowsData[i]);
+        const ws = XLSX.utils.json_to_sheet(selected);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Validados");
+        XLSX.writeFile(wb, "Procesado_" + currentFileName);
+    }
+</script>
+</body>
+</html>
