@@ -11,7 +11,7 @@
             --orden-blue: #bbdefb;  
             --success-bg: #a5d6a7;  
             --warning-bg: #ffcc80; 
-            --danger-bg: #ffcdd2; /* Rojo claro para cancelados */
+            --danger-bg: #ffcdd2; 
             --zebra-gray: #e0e0e0; 
             --border: #bcbcbc;
         }
@@ -33,7 +33,6 @@
         .col-ticket { background-color: var(--ticket-blue) !important; color: white !important; font-weight: bold; text-align: center; }
         .col-orden { background-color: var(--orden-blue) !important; color: #0d47a1 !important; font-weight: bold; text-align: center; }
         
-        /* Prioridades de colores (Cascada) */
         tr.is-cancelled { background-color: var(--danger-bg) !important; }
         tr.date-warning { background-color: var(--warning-bg) !important; }
         tr.checked { background-color: var(--success-bg) !important; }
@@ -50,8 +49,14 @@
 
         .counter { position: absolute; top: -22px; left: 50%; transform: translateX(-50%); background: #ffd600; color: #000; padding: 2px 15px; border-radius: 10px; font-weight: bold; font-size: 11px; white-space: nowrap; }
 
+        /* NUEVO CUADRO DE RESUMEN PARA IMPRESIÓN */
+        #print-summary { display: none; margin-bottom: 20px; border: 2px solid #000; padding: 10px; border-radius: 5px; background: #f9f9f9; }
+        #print-summary h2 { margin-top: 0; font-size: 18px; border-bottom: 1px solid #000; padding-bottom: 5px; }
+        .stat-box { display: flex; justify-content: space-around; font-size: 14px; font-weight: bold; }
+
         @media print {
             .bottom-bar, .upload-area, .btn-confirm, th:first-child, td:first-child { display: none !important; }
+            #print-summary { display: block !important; }
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
             tr.checked { background-color: #a5d6a7 !important; }
             tr.is-cancelled:not(.checked) { background-color: #ffcdd2 !important; }
@@ -60,6 +65,15 @@
     </style>
 </head>
 <body>
+
+<div id="print-summary">
+    <h2>Resumen de Validación</h2>
+    <div class="stat-box">
+        <span id="print-total">Total: 0</span>
+        <span id="print-val">Validados: 0</span>
+        <span id="print-pend">Pendientes: 0</span>
+    </div>
+</div>
 
 <div class="card">
     <div class="upload-area" onclick="document.getElementById('fileIn').click()">
@@ -185,13 +199,10 @@
         
         body.innerHTML = rowsData.map((row, i) => {
             const isChecked = checkedIndices.has(i);
-            
-            // LÓGICA DE CANCELADO (ROJO CLARO)
             let rowClass = "";
             const isCancelled = Object.values(row).some(v => String(v).toUpperCase().includes("CANCELADO"));
             if (isCancelled) rowClass = "is-cancelled";
 
-            // LÓGICA DE FECHAS (NARANJA) - Solo si no es cancelado
             if (!isCancelled) {
                 const colAgendamiento = activeCols.find(c => c.toUpperCase().includes("AGENDAMIENTO"));
                 const colEnvio = activeCols.find(c => c.toUpperCase().includes("ENVIO RESULTADOS"));
@@ -216,6 +227,20 @@
         }).join('');
         saveProgress();
         updateCounter();
+    }
+
+    function updateCounter() {
+        const total = rowsData.length;
+        const validados = checkedIndices.size;
+        const pendientes = total - validados;
+        
+        // Actualizar barra inferior
+        document.getElementById('count').innerText = `${validados} de ${total} validados`;
+        
+        // Actualizar resumen de impresión
+        document.getElementById('print-total').innerText = `Total Pacientes: ${total}`;
+        document.getElementById('print-val').innerText = `Validados (OK): ${validados}`;
+        document.getElementById('print-pend').innerText = `Pendientes: ${pendientes}`;
     }
 
     function showConfirm(i) {
@@ -274,13 +299,9 @@
     function borrarProgreso() {
         if(confirm("¿Borrar todo el progreso y la sesión actual?")) {
             checkedIndices.clear();
-            localStorage.clear(); // Limpia todo para empezar de cero
+            localStorage.clear();
             location.reload();
         }
-    }
-
-    function updateCounter() {
-        document.getElementById('count').innerText = `${checkedIndices.size} de ${rowsData.length} validados`;
     }
 
     function exportarExcel() {
