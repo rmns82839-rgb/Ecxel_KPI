@@ -10,6 +10,8 @@
             --ticket-blue: #0d47a1; 
             --orden-blue: #bbdefb;  
             --success-bg: #a5d6a7;  
+            --warning-bg: #ffcc80; 
+            --danger-bg: #ffcdd2; /* Rojo claro para cancelados */
             --zebra-gray: #e0e0e0; 
             --border: #bcbcbc;
         }
@@ -17,7 +19,6 @@
         body { font-family: 'Segoe UI', sans-serif; background: #eceff1; margin: 0; padding: 10px; padding-bottom: 110px; }
         .card { background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); padding: 12px; }
         
-        /* BOTÓN DE CARGA PEQUEÑO */
         .upload-area { border: 2px dashed #1a73e8; padding: 10px; text-align: center; border-radius: 8px; cursor: pointer; margin-bottom: 15px; background: #f1f8ff; display: flex; align-items: center; justify-content: center; gap: 10px; }
         .upload-area h3 { margin: 0; color: #1a73e8; font-size: 0.9rem; }
         
@@ -27,18 +28,18 @@
         th { background: #263238; color: white; padding: 10px; font-size: 11px; text-transform: uppercase; position: sticky; top: 0; z-index: 10; }
         td { padding: 10px; border: 1px solid #cfd8dc; font-size: 13px; color: #212121; }
 
-        /* Estilo Cebra */
-        tr:nth-child(even) { background-color: var(--zebra-gray) !important; }
+        tr:nth-child(even) { background-color: var(--zebra-gray); }
         
-        /* Columnas Mágicas */
         .col-ticket { background-color: var(--ticket-blue) !important; color: white !important; font-weight: bold; text-align: center; }
         .col-orden { background-color: var(--orden-blue) !important; color: #0d47a1 !important; font-weight: bold; text-align: center; }
         
+        /* Prioridades de colores (Cascada) */
+        tr.is-cancelled { background-color: var(--danger-bg) !important; }
+        tr.date-warning { background-color: var(--warning-bg) !important; }
         tr.checked { background-color: var(--success-bg) !important; }
         
         .btn-confirm { display: none; background: #e65100; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 11px; }
 
-        /* BARRA INFERIOR */
         .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #263238; display: flex; padding: 10px; gap: 8px; z-index: 1000; align-items: center; }
         .btn { padding: 12px 8px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; color: white; font-size: 12px; flex: 1; }
         .btn-undo { background: #5c6bc0; flex: 0.5; }
@@ -51,10 +52,10 @@
 
         @media print {
             .bottom-bar, .upload-area, .btn-confirm, th:first-child, td:first-child { display: none !important; }
-            td { -webkit-print-color-adjust: exact; }
-            .col-ticket { background-color: #0d47a1 !important; color: white !important; }
-            .col-orden { background-color: #bbdefb !important; color: #0d47a1 !important; }
-            tr:nth-child(even) { background-color: #e0e0e0 !important; }
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            tr.checked { background-color: #a5d6a7 !important; }
+            tr.is-cancelled:not(.checked) { background-color: #ffcdd2 !important; }
+            tr.date-warning:not(.checked):not(.is-cancelled) { background-color: #ffcc80 !important; }
         }
     </style>
 </head>
@@ -89,17 +90,32 @@
     let activeCols = [];
     let checkedIndices = new Set();
     let currentFileName = "";
-    
-    // Historial para Deshacer/Rehacer
     let history = [];
     let historyStep = -1;
+
+    window.onload = function() {
+        const savedData = localStorage.getItem('last_session_data');
+        const savedFile = localStorage.getItem('last_session_file');
+        const savedCols = localStorage.getItem('last_session_cols');
+        
+        if(savedData && savedFile && savedCols) {
+            rowsData = JSON.parse(savedData);
+            currentFileName = savedFile;
+            activeCols = JSON.parse(savedCols);
+            document.getElementById('fileNameDisplay').innerText = currentFileName + " (Recuperado)";
+            const savedProgress = localStorage.getItem('progress_' + currentFileName);
+            checkedIndices = savedProgress ? new Set(JSON.parse(savedProgress)) : new Set();
+            history = [JSON.stringify([...checkedIndices])];
+            historyStep = 0;
+            render();
+        }
+    };
 
     document.getElementById('fileIn').addEventListener('change', function(e) {
         const file = e.target.files[0];
         if(!file) return;
         currentFileName = file.name;
         document.getElementById('fileNameDisplay').innerText = currentFileName;
-        
         const reader = new FileReader();
         reader.onload = (evt) => {
             const wb = XLSX.read(new Uint8Array(evt.target.result), {type: 'array'});
@@ -108,6 +124,17 @@
         };
         reader.readAsArrayBuffer(file);
     });
+
+    function parseSpanishDate(dateStr) {
+        if (!dateStr) return null;
+        if (typeof dateStr === 'string') {
+            const parts = dateStr.split('/');
+            if (parts.length === 3) return new Date(parts[2], parts[1] - 1, parts[0]);
+            const isoParts = dateStr.split('-');
+            if (isoParts.length === 3) return new Date(isoParts[0], isoParts[1] - 1, isoParts[2]);
+        }
+        return null;
+    }
 
     function processData(raw) {
         let hIdx = raw.findIndex(r => r.some(c => String(c).toUpperCase().includes("TICKET")));
@@ -129,7 +156,7 @@
                 let obj = {};
                 activeCols.forEach(col => {
                     let val = row[map[col]];
-                    if(col.toUpperCase().includes("FECHA") && !isNaN(val) && val !== "") {
+                    if(col.toUpperCase().includes("FECHA") && !isNaN(val) && val !== "" && typeof val === 'number') {
                         val = new Date(Math.round((val - 25569) * 86400 * 1000)).toLocaleDateString('es-ES');
                     }
                     obj[col] = val;
@@ -139,25 +166,44 @@
             });
         });
 
+        localStorage.setItem('last_session_data', JSON.stringify(rowsData));
+        localStorage.setItem('last_session_file', currentFileName);
+        localStorage.setItem('last_session_cols', JSON.stringify(activeCols));
         const saved = localStorage.getItem('progress_' + currentFileName);
         checkedIndices = saved ? new Set(JSON.parse(saved)) : new Set();
-        
-        // Inicializar historial
         history = [JSON.stringify([...checkedIndices])];
         historyStep = 0;
-        
         render();
     }
 
     function render() {
         const head = document.getElementById('head');
         const body = document.getElementById('body');
+        if(activeCols.length === 0) return;
+
         head.innerHTML = `<tr><th>Acción</th>${activeCols.map(c => `<th>${c}</th>`).join('')}</tr>`;
         
         body.innerHTML = rowsData.map((row, i) => {
             const isChecked = checkedIndices.has(i);
+            
+            // LÓGICA DE CANCELADO (ROJO CLARO)
+            let rowClass = "";
+            const isCancelled = Object.values(row).some(v => String(v).toUpperCase().includes("CANCELADO"));
+            if (isCancelled) rowClass = "is-cancelled";
+
+            // LÓGICA DE FECHAS (NARANJA) - Solo si no es cancelado
+            if (!isCancelled) {
+                const colAgendamiento = activeCols.find(c => c.toUpperCase().includes("AGENDAMIENTO"));
+                const colEnvio = activeCols.find(c => c.toUpperCase().includes("ENVIO RESULTADOS"));
+                if (colAgendamiento && colEnvio) {
+                    const dAgen = parseSpanishDate(row[colAgendamiento]);
+                    const dEnv = parseSpanishDate(row[colEnvio]);
+                    if (dAgen && dEnv && dAgen > dEnv) rowClass = "date-warning";
+                }
+            }
+
             return `
-            <tr id="row-${i}" class="${isChecked ? 'checked' : ''}" onclick="showConfirm(${i})">
+            <tr id="row-${i}" class="${isChecked ? 'checked' : rowClass}" onclick="showConfirm(${i})">
                 <td style="text-align:center;">
                     <button id="btn-c-${i}" class="btn-confirm" onclick="confirmRow(event, ${i})">OK?</button>
                     <span id="lbl-${i}">${isChecked ? '✅' : '📑'}</span>
@@ -197,12 +243,9 @@
     function addToHistory() {
         const state = JSON.stringify([...checkedIndices]);
         if (state === history[historyStep]) return;
-        
         history = history.slice(0, historyStep + 1);
         history.push(state);
         historyStep++;
-        
-        // Limitar historial a 30 pasos para no saturar memoria
         if(history.length > 30) { history.shift(); historyStep--; }
     }
 
@@ -229,10 +272,10 @@
     }
 
     function borrarProgreso() {
-        if(confirm("¿Borrar todo el progreso de este archivo?")) {
+        if(confirm("¿Borrar todo el progreso y la sesión actual?")) {
             checkedIndices.clear();
-            addToHistory();
-            render();
+            localStorage.clear(); // Limpia todo para empezar de cero
+            location.reload();
         }
     }
 
