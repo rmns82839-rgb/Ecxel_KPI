@@ -23,34 +23,14 @@
         .upload-area { border: 2px dashed #1a73e8; padding: 10px; text-align: center; border-radius: 8px; cursor: pointer; margin-bottom: 15px; background: #f1f8ff; display: flex; align-items: center; justify-content: center; gap: 10px; }
         .upload-area h3 { margin: 0; color: #1a73e8; font-size: 0.9rem; }
         
-        .table-wrapper { 
-            width: 100%; 
-            max-height: 70vh; 
-            overflow: auto; 
-            border: 1px solid var(--border); 
-            border-radius: 4px; 
-        }
-
+        .table-wrapper { width: 100%; max-height: 70vh; overflow: auto; border: 1px solid var(--border); border-radius: 4px; }
         table { border-collapse: collapse; width: 100%; min-width: 900px; background: white; }
         
-        th { 
-            background: #263238; 
-            color: white; 
-            padding: 12px 10px; 
-            font-size: 11px; 
-            text-transform: uppercase; 
-            position: sticky; 
-            top: 0;           
-            z-index: 100;     
-            box-shadow: 0 2px 2px rgba(0,0,0,0.2); 
-        }
-
+        th { background: #263238; color: white; padding: 12px 10px; font-size: 11px; text-transform: uppercase; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 2px rgba(0,0,0,0.2); }
         td { padding: 10px; border: 1px solid #cfd8dc; font-size: 13px; color: #212121; }
-
         tr:nth-child(even) { background-color: var(--zebra-gray); }
         
-        /* Prioridades de colores */
-        .is-empty { background-color: var(--empty-bg) !important; } /* Amarillo para celdas vacías */
+        .is-empty { background-color: var(--empty-bg) !important; } 
         .col-ticket { background-color: var(--ticket-blue) !important; color: white !important; font-weight: bold; text-align: center; }
         .col-orden { background-color: var(--orden-blue) !important; color: #0d47a1 !important; font-weight: bold; text-align: center; }
         
@@ -59,7 +39,6 @@
         tr.checked { background-color: var(--success-bg) !important; }
         
         .btn-confirm { display: none; background: #e65100; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 11px; }
-
         .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #263238; display: flex; padding: 10px; gap: 8px; z-index: 1000; align-items: center; }
         .btn { padding: 12px 8px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; color: white; font-size: 12px; flex: 1; }
         .btn-undo { background: #5c6bc0; flex: 0.5; }
@@ -71,7 +50,6 @@
         .counter { position: absolute; top: -22px; left: 50%; transform: translateX(-50%); background: #ffd600; color: #000; padding: 2px 15px; border-radius: 10px; font-weight: bold; font-size: 11px; white-space: nowrap; }
 
         #print-summary { display: none; margin-bottom: 20px; border: 2px solid #000; padding: 10px; border-radius: 5px; background: #f9f9f9; }
-        #print-summary h2 { margin-top: 0; font-size: 18px; border-bottom: 1px solid #000; padding-bottom: 5px; }
         .stat-box { display: flex; justify-content: space-around; font-size: 14px; font-weight: bold; }
 
         @media print {
@@ -151,24 +129,35 @@
         document.getElementById('fileNameDisplay').innerText = currentFileName;
         const reader = new FileReader();
         reader.onload = (evt) => {
-            const wb = XLSX.read(new Uint8Array(evt.target.result), {type: 'array'});
+            // MEJORA: Leer fechas correctamente desde el origen
+            const wb = XLSX.read(new Uint8Array(evt.target.result), {type: 'array', cellDates: true, dateNF: 'dd/mm/yyyy'});
             const raw = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header: 1, defval: ""});
             processData(raw);
         };
         reader.readAsArrayBuffer(file);
     });
 
-    function parseSpanishDate(dateStr) {
-        if (!dateStr) return null;
-        if (typeof dateStr === 'string') {
-            const parts = dateStr.split('/');
-            if (parts.length === 3) return new Date(parts[2], parts[1] - 1, parts[0]);
-            const isoParts = dateStr.split('-');
-            if (isoParts.length === 3) return new Date(isoParts[0], isoParts[1] - 1, isoParts[2]);
+    // MEJORA: Formateador de fecha ultra-robusto para evitar cambios
+    function formatSafeDate(val) {
+        if (!val) return "";
+        if (val instanceof Date) {
+            // Ajuste para evitar desfases de horas
+            let d = val.getDate().toString().padStart(2, '0');
+            let m = (val.getMonth() + 1).toString().padStart(2, '0');
+            let a = val.getFullYear();
+            return `${d}/${m}/${a}`;
         }
-        // Manejo si es número de Excel
-        if (!isNaN(dateStr)) return new Date(Math.round((dateStr - 25569) * 86400 * 1000));
-        return null;
+        if (typeof val === 'string' && val.includes('-')) {
+            const p = val.split('T')[0].split('-');
+            if(p.length === 3) return `${p[2]}/${p[1]}/${p[0]}`;
+        }
+        return val;
+    }
+
+    function parseToCompare(dateStr) {
+        if (!dateStr) return null;
+        const p = dateStr.split('/');
+        return p.length === 3 ? new Date(p[2], p[1] - 1, p[0]) : null;
     }
 
     function processData(raw) {
@@ -191,8 +180,8 @@
                 let obj = {};
                 activeCols.forEach(col => {
                     let val = row[map[col]];
-                    if(col.toUpperCase().includes("FECHA") && !isNaN(val) && val !== "" && typeof val === 'number') {
-                        val = new Date(Math.round((val - 25569) * 86400 * 1000)).toLocaleDateString('es-ES');
+                    if(col.toUpperCase().includes("FECHA")) {
+                        val = formatSafeDate(val);
                     }
                     obj[col] = val;
                 });
@@ -204,8 +193,7 @@
         localStorage.setItem('last_session_data', JSON.stringify(rowsData));
         localStorage.setItem('last_session_file', currentFileName);
         localStorage.setItem('last_session_cols', JSON.stringify(activeCols));
-        const saved = localStorage.getItem('progress_' + currentFileName);
-        checkedIndices = saved ? new Set(JSON.parse(saved)) : new Set();
+        checkedIndices = new Set();
         history = [JSON.stringify([...checkedIndices])];
         historyStep = 0;
         render();
@@ -228,8 +216,8 @@
                 const colAgendamiento = activeCols.find(c => c.toUpperCase().includes("AGENDAMIENTO"));
                 const colEnvio = activeCols.find(c => c.toUpperCase().includes("ENVIO RESULTADOS"));
                 if (colAgendamiento && colEnvio) {
-                    const dAgen = parseSpanishDate(row[colAgendamiento]);
-                    const dEnv = parseSpanishDate(row[colEnvio]);
+                    const dAgen = parseToCompare(row[colAgendamiento]);
+                    const dEnv = parseToCompare(row[colEnvio]);
                     if (dAgen && dEnv && dAgen > dEnv) rowClass = "date-warning";
                 }
             }
@@ -242,9 +230,10 @@
                 </td>
                 ${activeCols.map(c => {
                     let val = row[c];
-                    // MEJORA: Sombrear en amarillo si está vacío
                     let emptyClass = (val === "" || val === undefined || val === null) ? "is-empty" : "";
-                    let cls = (c.toUpperCase() === "TICKET") ? "col-ticket" : (c.toUpperCase().includes("LABORATORIO") ? "col-orden" : "");
+                    // MEJORA: Incluir ORDEN FINAL en el resaltado azul
+                    let cls = (c.toUpperCase() === "TICKET") ? "col-ticket" : 
+                              (c.toUpperCase().includes("LABORATORIO") || c.toUpperCase().includes("ORDEN FINAL") ? "col-orden" : "");
                     return `<td class="${cls} ${emptyClass}">${val || ""}</td>`;
                 }).join('')}
             </tr>`;
@@ -255,12 +244,11 @@
 
     function updateCounter() {
         const total = rowsData.length;
-        const validados = checkedIndices.size;
-        const pendientes = total - validados;
-        document.getElementById('count').innerText = `${validados} de ${total} validados`;
+        const val = checkedIndices.size;
+        document.getElementById('count').innerText = `${val} de ${total} validados`;
         document.getElementById('print-total').innerText = `Total Pacientes: ${total}`;
-        document.getElementById('print-val').innerText = `Validados (OK): ${validados}`;
-        document.getElementById('print-pend').innerText = `Pendientes: ${pendientes}`;
+        document.getElementById('print-val').innerText = `Validados (OK): ${val}`;
+        document.getElementById('print-pend').innerText = `Pendientes: ${total - val}`;
         document.getElementById('report-title').innerText = "Reporte: " + currentFileName;
     }
 
@@ -268,11 +256,7 @@
         document.querySelectorAll('.btn-confirm').forEach(b => b.style.display = 'none');
         document.querySelectorAll('span[id^="lbl-"]').forEach(s => s.style.display = 'inline');
         if(checkedIndices.has(i)) {
-            if(confirm("¿Quitar marcado?")) {
-                checkedIndices.delete(i);
-                addToHistory();
-                render();
-            }
+            if(confirm("¿Quitar marcado?")) { checkedIndices.delete(i); addToHistory(); render(); }
         } else {
             document.getElementById(`btn-c-${i}`).style.display = 'inline-block';
             document.getElementById(`lbl-${i}`).style.display = 'none';
@@ -294,44 +278,16 @@
         historyStep++;
     }
 
-    function undo() {
-        if (historyStep > 0) {
-            historyStep--;
-            checkedIndices = new Set(JSON.parse(history[historyStep]));
-            render();
-        }
-    }
-
-    function redo() {
-        if (historyStep < history.length - 1) {
-            historyStep++;
-            checkedIndices = new Set(JSON.parse(history[historyStep]));
-            render();
-        }
-    }
-
-    function saveProgress() {
-        if(currentFileName) {
-            localStorage.setItem('progress_' + currentFileName, JSON.stringify([...checkedIndices]));
-        }
-    }
-
-    function borrarProgreso() {
-        if(confirm("¿Borrar todo el progreso y la sesión actual?")) {
-            checkedIndices.clear();
-            localStorage.clear();
-            location.reload();
-        }
-    }
+    function undo() { if (historyStep > 0) { historyStep--; checkedIndices = new Set(JSON.parse(history[historyStep])); render(); } }
+    function redo() { if (historyStep < history.length - 1) { historyStep++; checkedIndices = new Set(JSON.parse(history[historyStep])); render(); } }
+    function saveProgress() { if(currentFileName) localStorage.setItem('progress_' + currentFileName, JSON.stringify([...checkedIndices])); }
+    function borrarProgreso() { if(confirm("¿Borrar todo?")) { localStorage.clear(); location.reload(); } }
 
     function exportarExcel() {
         if(checkedIndices.size === 0) return alert("No hay datos validados");
-        // MEJORA: Solo exportar las columnas activas en la App
         const selected = [...checkedIndices].map(i => {
             let filteredRow = {};
-            activeCols.forEach(col => {
-                filteredRow[col] = rowsData[i][col];
-            });
+            activeCols.forEach(col => { filteredRow[col] = rowsData[i][col]; });
             return filteredRow;
         });
         const ws = XLSX.utils.json_to_sheet(selected);
