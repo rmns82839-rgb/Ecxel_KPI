@@ -12,6 +12,7 @@
             --success-bg: #a5d6a7;  
             --warning-bg: #ffcc80; 
             --danger-bg: #ffcdd2; 
+            --empty-bg: #fff9c4; /* Amarillo claro para vacíos */
             --zebra-gray: #e0e0e0; 
             --border: #bcbcbc;
         }
@@ -22,10 +23,9 @@
         .upload-area { border: 2px dashed #1a73e8; padding: 10px; text-align: center; border-radius: 8px; cursor: pointer; margin-bottom: 15px; background: #f1f8ff; display: flex; align-items: center; justify-content: center; gap: 10px; }
         .upload-area h3 { margin: 0; color: #1a73e8; font-size: 0.9rem; }
         
-        /* CONTENEDOR DE LA TABLA CON SCROLL */
         .table-wrapper { 
             width: 100%; 
-            max-height: 70vh; /* Altura máxima para que el scroll funcione dentro de la card */
+            max-height: 70vh; 
             overflow: auto; 
             border: 1px solid var(--border); 
             border-radius: 4px; 
@@ -33,23 +33,24 @@
 
         table { border-collapse: collapse; width: 100%; min-width: 900px; background: white; }
         
-        /* ENCABEZADOS FIJOS (STICKY) */
         th { 
             background: #263238; 
             color: white; 
             padding: 12px 10px; 
             font-size: 11px; 
             text-transform: uppercase; 
-            position: sticky; /* Hace que se quede fijo */
-            top: 0;           /* En la parte superior del contenedor */
-            z-index: 100;     /* Por encima de las celdas */
-            box-shadow: 0 2px 2px rgba(0,0,0,0.2); /* Sombra para que se vea la separación al bajar */
+            position: sticky; 
+            top: 0;           
+            z-index: 100;     
+            box-shadow: 0 2px 2px rgba(0,0,0,0.2); 
         }
 
         td { padding: 10px; border: 1px solid #cfd8dc; font-size: 13px; color: #212121; }
 
         tr:nth-child(even) { background-color: var(--zebra-gray); }
         
+        /* Prioridades de colores */
+        .is-empty { background-color: var(--empty-bg) !important; } /* Amarillo para celdas vacías */
         .col-ticket { background-color: var(--ticket-blue) !important; color: white !important; font-weight: bold; text-align: center; }
         .col-orden { background-color: var(--orden-blue) !important; color: #0d47a1 !important; font-weight: bold; text-align: center; }
         
@@ -75,9 +76,9 @@
 
         @media print {
             .bottom-bar, .upload-area, .btn-confirm, th:first-child, td:first-child { display: none !important; }
-            .table-wrapper { max-height: none !important; overflow: visible !important; } /* Para que en la impresión salga todo */
+            .table-wrapper { max-height: none !important; overflow: visible !important; }
             #print-summary { display: block !important; }
-            th { position: static !important; } /* Quitar sticky en impresión */
+            th { position: static !important; }
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
     </style>
@@ -85,9 +86,9 @@
 <body>
 
 <div id="print-summary">
-    <h2>Resumen de Validación</h2>
+    <h2 id="report-title">Resumen de Validación</h2>
     <div class="stat-box">
-        <span id="print-total">Total: 0</span>
+        <span id="print-total">Total Pacientes: 0</span>
         <span id="print-val">Validados: 0</span>
         <span id="print-pend">Pendientes: 0</span>
     </div>
@@ -118,9 +119,6 @@
 </div>
 
 <script>
-    // Se mantienen todas las funciones de lógica (parseSpanishDate, processData, render, etc.)
-    // igual que en el código anterior para no perder la persistencia ni los colores.
-    
     let rowsData = [];
     let activeCols = [];
     let checkedIndices = new Set();
@@ -168,6 +166,8 @@
             const isoParts = dateStr.split('-');
             if (isoParts.length === 3) return new Date(isoParts[0], isoParts[1] - 1, isoParts[2]);
         }
+        // Manejo si es número de Excel
+        if (!isNaN(dateStr)) return new Date(Math.round((dateStr - 25569) * 86400 * 1000));
         return null;
     }
 
@@ -241,8 +241,11 @@
                     <span id="lbl-${i}">${isChecked ? '✅' : '📑'}</span>
                 </td>
                 ${activeCols.map(c => {
+                    let val = row[c];
+                    // MEJORA: Sombrear en amarillo si está vacío
+                    let emptyClass = (val === "" || val === undefined || val === null) ? "is-empty" : "";
                     let cls = (c.toUpperCase() === "TICKET") ? "col-ticket" : (c.toUpperCase().includes("LABORATORIO") ? "col-orden" : "");
-                    return `<td class="${cls}">${row[c]}</td>`;
+                    return `<td class="${cls} ${emptyClass}">${val || ""}</td>`;
                 }).join('')}
             </tr>`;
         }).join('');
@@ -258,6 +261,7 @@
         document.getElementById('print-total').innerText = `Total Pacientes: ${total}`;
         document.getElementById('print-val').innerText = `Validados (OK): ${validados}`;
         document.getElementById('print-pend').innerText = `Pendientes: ${pendientes}`;
+        document.getElementById('report-title').innerText = "Reporte: " + currentFileName;
     }
 
     function showConfirm(i) {
@@ -322,11 +326,18 @@
 
     function exportarExcel() {
         if(checkedIndices.size === 0) return alert("No hay datos validados");
-        const selected = [...checkedIndices].map(i => rowsData[i]);
+        // MEJORA: Solo exportar las columnas activas en la App
+        const selected = [...checkedIndices].map(i => {
+            let filteredRow = {};
+            activeCols.forEach(col => {
+                filteredRow[col] = rowsData[i][col];
+            });
+            return filteredRow;
+        });
         const ws = XLSX.utils.json_to_sheet(selected);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Validados");
-        XLSX.writeFile(wb, "Procesado_" + currentFileName);
+        XLSX.writeFile(wb, "VALIDADO_" + currentFileName);
     }
 </script>
 </body>
