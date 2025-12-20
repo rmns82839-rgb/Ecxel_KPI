@@ -12,7 +12,7 @@
         :root { 
             --ticket-blue: #0d47a1; --orden-blue: #bbdefb; --success-bg: #a5d6a7;  
             --warning-bg: #ffb74d; --danger-bg: #ffcdd2; --empty-bg: #fff9c4; 
-            --duplicate-bg: #e1bee7; --zebra-gray: #e0e0e0; --border: #bcbcbc;
+            --duplicate-bg: #e1bee7; --special-bg: #fff176; --zebra-gray: #e0e0e0; --border: #bcbcbc;
         }
         
         body { font-family: 'Segoe UI', sans-serif; background: #eceff1; margin: 0; padding: 5px; padding-bottom: 110px; }
@@ -32,8 +32,9 @@
         }
         .upload-area h3 { margin: 2px 0; font-size: 13px; }
         
+        /* MEJORA: Columna fija lateral */
         .table-wrapper { width: 100%; max-height: 70vh; overflow: auto; border: 1px solid var(--border); border-radius: 4px; position: relative; }
-        table { border-collapse: collapse; width: max-content; min-width: 100%; background: white; table-layout: fixed; } 
+        table { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; background: white; table-layout: fixed; } 
         
         /* PARA REPETIR ENCABEZADOS EN PDF */
         thead { display: table-header-group; }
@@ -45,9 +46,20 @@
             -webkit-print-color-adjust: exact;
         }
 
+        /* MEJORA: Estilo para mantener la columna OK pegada a la izquierda */
+        .col-accion { 
+            position: sticky !important; 
+            left: 0; 
+            z-index: 50; 
+            background-color: inherit; 
+            width: 80px !important; 
+            text-align: center;
+            border-right: 2px solid var(--border) !important;
+        }
+        th.col-accion { z-index: 150 !important; }
+
         td { padding: 5px 6px; border: 1px solid #cfd8dc; font-size: 10px; color: #212121; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         
-        .col-accion { width: 45px !important; text-align: center; }
         .col-compacta { width: 70px; }
         .col-ticket { background-color: var(--ticket-blue) !important; color: white !important; font-weight: bold; text-align: center; width: 85px; }
         .col-orden { background-color: var(--orden-blue) !important; color: #0d47a1 !important; font-weight: bold; text-align: center; width: 90px; }
@@ -61,6 +73,16 @@
         tr.is-duplicate { background-color: var(--duplicate-bg) !important; } 
         tr.checked:not(.is-cancelled):not(.date-warning):not(.is-duplicate) { background-color: var(--success-bg) !important; }
         
+        /* MEJORA: Color para Casos Especiales */
+        tr.is-special-marked { background-color: var(--special-bg) !important; }
+
+        /* MEJORA: Nuevos estilos para los mini botones */
+        .btn-mini-group { display: none; gap: 2px; justify-content: center; }
+        .btn-mini { border: none; padding: 4px 6px; border-radius: 4px; color: white; font-weight: bold; font-size: 9px; cursor: pointer; }
+        .btn-ok-mini { background: #2e7d32; }
+        .btn-esp-mini { background: #e65100; }
+        .nota-especial { font-size: 8px; color: #b71c1c; display: block; white-space: normal; line-height: 1; margin-top: 2px; }
+
         .firma-display { font-family: 'Dancing Script', cursive; font-size: 26px; color: #1a237e; margin-top: 15px; border-top: 1px solid #000; display: inline-block; padding-top: 5px; min-width: 200px; text-align: center; }
         .btn-confirm { display: none; background: #e65100; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; font-size: 10px; }
         .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #263238; display: flex; padding: 12px 8px; gap: 6px; z-index: 1000; align-items: center; }
@@ -72,9 +94,10 @@
         .counter { position: absolute; top: -20px; left: 50%; transform: translateX(-50%); background: #ffd600; color: #000; padding: 2px 15px; border-radius: 10px; font-weight: bold; font-size: 11px; white-space: nowrap; }
 
         @media print {
-            .bottom-bar, .upload-area, .firma-input-container, .btn-confirm { display: none !important; }
+            .bottom-bar, .upload-area, .firma-input-container, .btn-confirm, .btn-mini-group { display: none !important; }
             .print-only { display: block !important; margin-bottom: 15px; border-bottom: 2px solid #333; }
             .table-wrapper { max-height: none !important; overflow: visible !important; border: none; }
+            .col-accion { position: static !important; border: 1px solid #ccc !important; }
             table { width: 100% !important; table-layout: auto; }
             #firmaFooter { display: block !important; }
             tr, td, th { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
@@ -117,15 +140,16 @@
     <div id="count" class="counter">Validados: 0 | Pendientes: 0</div>
     <button onclick="undo()" class="btn btn-undo">↶</button>
     <button onclick="redo()" class="btn btn-redo">↷</button>
-    <button onclick="window.print()" class="btn btn-print">🖨️ PDF</button>
+    <button onclick="window.print()" class="btn btn-print">🖨 PDF</button>
     <button onclick="exportarExcelConColores()" class="btn btn-excel">💾 Excel</button>
-    <button onclick="borrarProgreso()" class="btn btn-clear">🗑️</button>
+    <button onclick="borrarProgreso()" class="btn btn-clear">🗑</button>
 </div>
 
 <script>
     let rowsData = [];
     let activeCols = [];
     let checkedIndices = new Set();
+    let specialNotes = {}; 
     let currentFileName = "";
     let history = [];
     let historyStep = -1;
@@ -160,6 +184,7 @@
             rowsData = JSON.parse(savedData);
             currentFileName = localStorage.getItem('last_session_file');
             activeCols = JSON.parse(localStorage.getItem('last_session_cols'));
+            specialNotes = JSON.parse(localStorage.getItem('notes_' + currentFileName) || "{}");
             document.getElementById('fileNameDisplay').innerText = currentFileName;
             document.getElementById('pdfFileName').innerText = "Archivo: " + currentFileName;
             const savedProgress = localStorage.getItem('progress_' + currentFileName);
@@ -216,6 +241,7 @@
         localStorage.setItem('last_session_file', currentFileName);
         localStorage.setItem('last_session_cols', JSON.stringify(activeCols));
         checkedIndices = new Set();
+        specialNotes = {};
         addToHistory();
         render();
     }
@@ -237,6 +263,7 @@
         
         body.innerHTML = rowsData.map((row, i) => {
             const isChecked = checkedIndices.has(i);
+            const note = specialNotes[i];
             const isCancelled = Object.values(row).some(v => String(v).toUpperCase().includes("CANCELADO"));
             const tVal = String(row.TICKET).trim();
             const isRepetido = counts[tVal] > 1;
@@ -252,17 +279,21 @@
             }
 
             let rowClass = isCancelled ? "is-cancelled" : (dateWarning ? "date-warning" : (isRepetido ? "is-duplicate" : ""));
-            if (isChecked) rowClass += " checked";
+            if (isChecked) rowClass = note ? "is-special-marked" : "checked";
 
             return `
             <tr id="row-${i}" class="${rowClass}" onclick="showConfirm(${i})">
                 <td class="col-accion">
-                    <button id="btn-c-${i}" class="btn-confirm" onclick="confirmRow(event, ${i})">OK</button>
-                    <span id="lbl-${i}">${isChecked ? '✅' : '📑'}</span>
+                    <div id="btn-group-${i}" class="btn-mini-group">
+                        <button class="btn-mini btn-ok-mini" onclick="confirmRow(event, ${i}, false)">OK</button>
+                        <button class="btn-mini btn-esp-mini" onclick="confirmRow(event, ${i}, true)">ESP</button>
+                    </div>
+                    <span id="lbl-${i}">${isChecked ? (note ? '⭐' : '✅') : '📑'}</span>
+                    ${note ? `<span class="nota-especial">${note}</span>` : ''}
                 </td>
                 ${activeCols.map((c, idx) => {
                     let val = row[c];
-                    if(c.toUpperCase().includes("TICKET") && isNotTheFirst) val = "⚠️ " + val;
+                    if(c.toUpperCase().includes("TICKET") && isNotTheFirst) val = "⚠ " + val;
                     return `<td class="${getColStyleClass(c, idx)}">${val || ""}</td>`;
                 }).join('')}
             </tr>`;
@@ -284,7 +315,8 @@
         if (checkedIndices.size === 0) return alert("No hay datos validados.");
         const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet('Validados');
-        worksheet.columns = activeCols.map(col => ({ header: col, key: col, width: 16 }));
+        const finalCols = [...activeCols, "NOTA ESPECIAL"];
+        worksheet.columns = finalCols.map(col => ({ header: col, key: col, width: 16 }));
         worksheet.getRow(1).eachCell(cell => {
             cell.fill = { type: 'pattern', pattern:'solid', fgColor:{argb:'FF263238'} };
             cell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
@@ -292,10 +324,10 @@
         const counts = {};
         rowsData.forEach(r => { const t = String(r.TICKET).trim(); counts[t] = (counts[t] || 0) + 1; });
         [...checkedIndices].forEach(idx => {
-            const row = rowsData[idx];
+            const row = {...rowsData[idx], "NOTA ESPECIAL": specialNotes[idx] || ""};
             const isCancelled = Object.values(row).some(v => String(v).toUpperCase().includes("CANCELADO"));
             const excelRow = worksheet.addRow(row);
-            let color = 'FFA5D6A7'; 
+            let color = specialNotes[idx] ? 'FFFFFF76' : 'FFA5D6A7'; 
             if (isCancelled) color = 'FFFFCDD2';
             else if (counts[String(row.TICKET).trim()] > 1) color = 'FFE1BEE7';
             excelRow.eachCell(cell => {
@@ -309,25 +341,63 @@
     }
 
     function showConfirm(i) {
-        document.querySelectorAll('.btn-confirm').forEach(b => b.style.display = 'none');
-        document.querySelectorAll('span[id^="lbl-"]').forEach(s => s.style.display = 'inline');
         if(checkedIndices.has(i)) {
-            if(confirm("¿Quitar marcado?")) { checkedIndices.delete(i); addToHistory(); render(); }
-        } else {
-            document.getElementById(`btn-c-${i}`).style.display = 'inline-block';
-            document.getElementById(`lbl-${i}`).style.display = 'none';
+            if(confirm("¿Quitar marcado?")) { 
+                checkedIndices.delete(i); 
+                delete specialNotes[i];
+                addToHistory(); 
+                render(); 
+            }
+            return;
         }
+        document.querySelectorAll('.btn-mini-group').forEach(b => b.style.display = 'none');
+        document.querySelectorAll('span[id^="lbl-"]').forEach(s => s.style.display = 'inline');
+        document.getElementById(`btn-group-${i}`).style.display = 'flex';
+        document.getElementById(`lbl-${i}`).style.display = 'none';
     }
-    function confirmRow(e, i) { e.stopPropagation(); checkedIndices.add(i); addToHistory(); render(); }
+
+    function confirmRow(e, i, isSpecial) { 
+        e.stopPropagation(); 
+        if(isSpecial) {
+            const nota = prompt("Ingrese nota para el caso especial:");
+            if(!nota) { render(); return; }
+            specialNotes[i] = nota;
+        }
+        checkedIndices.add(i); 
+        addToHistory(); 
+        render(); 
+    }
+
     function addToHistory() { 
-        const state = JSON.stringify([...checkedIndices]);
+        const state = JSON.stringify({indices: [...checkedIndices], notes: specialNotes});
         if (historyStep >= 0 && state === history[historyStep]) return;
         history = history.slice(0, historyStep + 1); history.push(state); historyStep++; 
     }
-    function undo() { if (historyStep > 0) { historyStep--; checkedIndices = new Set(JSON.parse(history[historyStep])); render(); } }
-    function redo() { if (historyStep < history.length - 1) { historyStep++; checkedIndices = new Set(JSON.parse(history[historyStep])); render(); } }
-    function saveProgress() { if(currentFileName) localStorage.setItem('progress_' + currentFileName, JSON.stringify([...checkedIndices])); }
+    function undo() { 
+        if (historyStep > 0) { 
+            historyStep--; 
+            const state = JSON.parse(history[historyStep]);
+            checkedIndices = new Set(state.indices);
+            specialNotes = state.notes;
+            render(); 
+        } 
+    }
+    function redo() { 
+        if (historyStep < history.length - 1) { 
+            historyStep++; 
+            const state = JSON.parse(history[historyStep]);
+            checkedIndices = new Set(state.indices);
+            specialNotes = state.notes;
+            render(); 
+        } 
+    }
+    function saveProgress() { 
+        if(currentFileName) {
+            localStorage.setItem('progress_' + currentFileName, JSON.stringify([...checkedIndices]));
+            localStorage.setItem('notes_' + currentFileName, JSON.stringify(specialNotes));
+        }
+    }
     function borrarProgreso() { if(confirm("¿Borrar todo?")) { localStorage.clear(); location.reload(); } }
 </script>
 </body>
-    </html>
+</html>
