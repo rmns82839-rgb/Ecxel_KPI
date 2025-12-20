@@ -18,13 +18,26 @@
         body { font-family: 'Segoe UI', sans-serif; background: #eceff1; margin: 0; padding: 5px; padding-bottom: 110px; }
         .card { background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); padding: 8px; }
         
+        /* Información visible solo en Impresión */
+        .print-only { display: none; }
+
         .firma-input-container { margin-bottom: 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
         .input-text { padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; flex-grow: 1; max-width: 300px; }
-        .upload-area { border: 2px dashed #1a73e8; padding: 12px; text-align: center; border-radius: 8px; cursor: pointer; margin-bottom: 10px; background: #f1f8ff; }
+        
+        /* BOTÓN DE CARGA ACHICADO */
+        .upload-area { 
+            border: 1px dashed #1a73e8; padding: 5px; text-align: center; 
+            border-radius: 6px; cursor: pointer; margin-bottom: 8px; 
+            background: #f1f8ff; font-size: 12px;
+        }
+        .upload-area h3 { margin: 2px 0; font-size: 13px; }
         
         .table-wrapper { width: 100%; max-height: 70vh; overflow: auto; border: 1px solid var(--border); border-radius: 4px; position: relative; }
         table { border-collapse: collapse; width: max-content; min-width: 100%; background: white; table-layout: fixed; } 
         
+        /* PARA REPETIR ENCABEZADOS EN PDF */
+        thead { display: table-header-group; }
+
         th { 
             background: #263238 !important; color: white !important; padding: 8px 4px; font-size: 9px; 
             text-transform: uppercase; position: sticky; top: 0; z-index: 100; 
@@ -32,10 +45,10 @@
             -webkit-print-color-adjust: exact;
         }
 
-        td { padding: 5px 6px; border: 1px solid #cfd8dc; font-size: 11px; color: #212121; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        td { padding: 5px 6px; border: 1px solid #cfd8dc; font-size: 10px; color: #212121; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         
         .col-accion { width: 45px !important; text-align: center; }
-        .col-compacta { width: 75px; }
+        .col-compacta { width: 70px; }
         .col-ticket { background-color: var(--ticket-blue) !important; color: white !important; font-weight: bold; text-align: center; width: 85px; }
         .col-orden { background-color: var(--orden-blue) !important; color: #0d47a1 !important; font-weight: bold; text-align: center; width: 90px; }
 
@@ -60,7 +73,9 @@
 
         @media print {
             .bottom-bar, .upload-area, .firma-input-container, .btn-confirm { display: none !important; }
-            .table-wrapper { max-height: none !important; overflow: visible !important; }
+            .print-only { display: block !important; margin-bottom: 15px; border-bottom: 2px solid #333; }
+            .table-wrapper { max-height: none !important; overflow: visible !important; border: none; }
+            table { width: 100% !important; table-layout: auto; }
             #firmaFooter { display: block !important; }
             tr, td, th { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
@@ -69,6 +84,11 @@
 <body>
 
 <div class="card">
+    <div class="print-only">
+        <h2 id="pdfFileName" style="margin:0; font-size:16px;">Reporte de Validación</h2>
+        <p id="pdfStats" style="margin:5px 0; font-weight:bold;"></p>
+    </div>
+
     <div class="firma-input-container">
         <label style="font-size: 11px; font-weight: bold;">RESPONSABLE:</label>
         <input type="text" id="nombreResponsable" class="input-text" placeholder="Escriba su nombre..." oninput="updateFirma()">
@@ -77,7 +97,7 @@
     <div class="upload-area" onclick="document.getElementById('fileIn').click()">
         <input type="file" id="fileIn" accept=".xlsx, .xls, .csv" style="display:none">
         <h3>📂 Cargar Archivo</h3>
-        <span id="fileNameDisplay" style="color:#666; font-size:0.7rem;">(No hay archivo seleccionado)</span>
+        <span id="fileNameDisplay" style="color:#666; font-size:0.65rem;">(Sin archivo)</span>
     </div>
 
     <div class="table-wrapper">
@@ -94,11 +114,11 @@
 </div>
 
 <div class="bottom-bar">
-    <div id="count" class="counter">0/0 OK</div>
+    <div id="count" class="counter">Validados: 0 | Pendientes: 0</div>
     <button onclick="undo()" class="btn btn-undo">↶</button>
     <button onclick="redo()" class="btn btn-redo">↷</button>
-    <button onclick="window.print()" class="btn btn-print">🖨️ Imprimir</button>
-    <button onclick="exportarExcelConColores()" class="btn btn-excel">💾 Excel Color</button>
+    <button onclick="window.print()" class="btn btn-print">🖨️ PDF</button>
+    <button onclick="exportarExcelConColores()" class="btn btn-excel">💾 Excel</button>
     <button onclick="borrarProgreso()" class="btn btn-clear">🗑️</button>
 </div>
 
@@ -114,7 +134,7 @@
         const nom = document.getElementById('nombreResponsable').value;
         document.getElementById('displayFirma').innerText = nom;
         document.getElementById('firmaFooter').style.display = nom ? 'block' : 'none';
-        localStorage.setItem('val_firma_v10', nom);
+        localStorage.setItem('val_firma_v12', nom);
     }
 
     function parseToCompare(dateStr) {
@@ -133,7 +153,7 @@
     }
 
     window.onload = function() {
-        const savedFirma = localStorage.getItem('val_firma_v10');
+        const savedFirma = localStorage.getItem('val_firma_v12');
         if(savedFirma) { document.getElementById('nombreResponsable').value = savedFirma; updateFirma(); }
         const savedData = localStorage.getItem('last_session_data');
         if(savedData) {
@@ -141,6 +161,7 @@
             currentFileName = localStorage.getItem('last_session_file');
             activeCols = JSON.parse(localStorage.getItem('last_session_cols'));
             document.getElementById('fileNameDisplay').innerText = currentFileName;
+            document.getElementById('pdfFileName').innerText = "Archivo: " + currentFileName;
             const savedProgress = localStorage.getItem('progress_' + currentFileName);
             checkedIndices = savedProgress ? new Set(JSON.parse(savedProgress)) : new Set();
             render();
@@ -152,6 +173,7 @@
         if(!file) return;
         currentFileName = file.name;
         document.getElementById('fileNameDisplay').innerText = currentFileName;
+        document.getElementById('pdfFileName').innerText = "Archivo: " + currentFileName;
         const reader = new FileReader();
         reader.onload = (evt) => {
             const wb = XLSX.read(new Uint8Array(evt.target.result), {type: 'array', cellDates: true});
@@ -240,9 +262,8 @@
                 </td>
                 ${activeCols.map((c, idx) => {
                     let val = row[c];
-                    let isEmpty = (!val || val === "") ? "is-empty" : "";
                     if(c.toUpperCase().includes("TICKET") && isNotTheFirst) val = "⚠️ " + val;
-                    return `<td class="${getColStyleClass(c, idx)} ${isEmpty}">${val || ""}</td>`;
+                    return `<td class="${getColStyleClass(c, idx)}">${val || ""}</td>`;
                 }).join('')}
             </tr>`;
         }).join('');
@@ -251,66 +272,42 @@
         saveProgress();
     }
 
+    function updateCounter() { 
+        const v = checkedIndices.size;
+        const p = rowsData.length - v;
+        const info = `Validados: ${v} | Pendientes: ${p} | Total: ${rowsData.length}`;
+        document.getElementById('count').innerText = info;
+        document.getElementById('pdfStats').innerText = info;
+    }
+
     async function exportarExcelConColores() {
-        if (checkedIndices.size === 0) return alert("No hay datos validados para exportar.");
-        
+        if (checkedIndices.size === 0) return alert("No hay datos validados.");
         const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet('Validados');
-
-        // Definir Columnas
-        worksheet.columns = activeCols.map(col => ({ header: col, key: col, width: 15 }));
-
-        // Estilo Encabezado
+        worksheet.columns = activeCols.map(col => ({ header: col, key: col, width: 16 }));
         worksheet.getRow(1).eachCell(cell => {
             cell.fill = { type: 'pattern', pattern:'solid', fgColor:{argb:'FF263238'} };
-            cell.font = { color: { argb: 'FFFFFFFF' }, bold: true, size: 10 };
+            cell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
         });
-
         const counts = {};
-        const firstSeenIndex = {};
-        rowsData.forEach((r, idx) => {
-            const t = String(r.TICKET).trim();
-            if(!counts[t]) { counts[t] = 1; firstSeenIndex[t] = idx; } else { counts[t]++; }
-        });
-
-        // Agregar Filas con su color correspondiente
+        rowsData.forEach(r => { const t = String(r.TICKET).trim(); counts[t] = (counts[t] || 0) + 1; });
         [...checkedIndices].forEach(idx => {
             const row = rowsData[idx];
             const isCancelled = Object.values(row).some(v => String(v).toUpperCase().includes("CANCELADO"));
-            const tVal = String(row.TICKET).trim();
-            const isRepetido = counts[tVal] > 1;
-            
-            let dateWarning = false;
-            const colAgen = activeCols.find(c => c.toUpperCase().includes("AGENDAMIENTO"));
-            const colEnvio = activeCols.find(c => c.toUpperCase().includes("ENVIO"));
-            if (colAgen && colEnvio) {
-                const dA = parseToCompare(row[colAgen]);
-                const dE = parseToCompare(row[colEnvio]);
-                if (dA && dE && dA > dE) dateWarning = true;
-            }
-
             const excelRow = worksheet.addRow(row);
-
-            // Aplicar Color a la fila de Excel según lógica
-            let color = 'FFFFFFFF'; // Blanco por defecto
-            if (isCancelled) color = 'FFFFCDD2'; // Rojo
-            else if (dateWarning) color = 'FFFFB74D'; // Naranja
-            else if (isRepetido) color = 'FFE1BEE7'; // Morado
-            else color = 'FFA5D6A7'; // Verde (ya que está en checkedIndices)
-
+            let color = 'FFA5D6A7'; 
+            if (isCancelled) color = 'FFFFCDD2';
+            else if (counts[String(row.TICKET).trim()] > 1) color = 'FFE1BEE7';
             excelRow.eachCell(cell => {
                 cell.fill = { type: 'pattern', pattern:'solid', fgColor:{argb: color} };
-                cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
-                // Forzar que los números se vean como texto para no perder carácteres
+                cell.border = { top:{style:'thin'}, left:{style:'thin'}, bottom:{style:'thin'}, right:{style:'thin'} };
                 cell.numFmt = '@'; 
             });
         });
-
         const buffer = await workbook.xlsx.writeBuffer();
-        saveAs(new Blob([buffer]), "VALIDADO_COLOR_" + currentFileName + ".xlsx");
+        saveAs(new Blob([buffer]), "VALIDADO_" + currentFileName + ".xlsx");
     }
 
-    function updateCounter() { document.getElementById('count').innerText = `${checkedIndices.size}/${rowsData.length} OK`; }
     function showConfirm(i) {
         document.querySelectorAll('.btn-confirm').forEach(b => b.style.display = 'none');
         document.querySelectorAll('span[id^="lbl-"]').forEach(s => s.style.display = 'inline');
@@ -333,4 +330,4 @@
     function borrarProgreso() { if(confirm("¿Borrar todo?")) { localStorage.clear(); location.reload(); } }
 </script>
 </body>
-</html>
+    </html>
