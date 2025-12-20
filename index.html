@@ -67,15 +67,15 @@
         .is-empty { background-color: var(--empty-bg) !important; } 
         tr:nth-child(even) { background-color: var(--zebra-gray); }
         
-        /* COLORES FIJOS */
+        /* MEJORA: LÓGICA DE COLORES QUE MANTIENE EL COLOR ORIGINAL */
         tr.is-cancelled { background-color: var(--danger-bg) !important; text-decoration: none !important; }
         tr.date-warning { background-color: var(--warning-bg) !important; }
         tr.is-duplicate { background-color: var(--duplicate-bg) !important; } 
-        tr.checked:not(.is-cancelled):not(.date-warning):not(.is-duplicate) { background-color: var(--success-bg) !important; }
-        
-        /* MEJORA: Color para Casos Especiales */
         tr.is-special-marked { background-color: var(--special-bg) !important; }
 
+        /* Solo se vuelve verde si está marcado Y NO tiene otros colores de advertencia */
+        tr.checked:not(.is-cancelled):not(.date-warning):not(.is-duplicate):not(.is-special-marked) { background-color: var(--success-bg) !important; }
+        
         /* MEJORA: Nuevos estilos para los mini botones */
         .btn-mini-group { display: none; gap: 2px; justify-content: center; }
         .btn-mini { border: none; padding: 4px 6px; border-radius: 4px; color: white; font-weight: bold; font-size: 9px; cursor: pointer; }
@@ -140,16 +140,16 @@
     <div id="count" class="counter">Validados: 0 | Pendientes: 0</div>
     <button onclick="undo()" class="btn btn-undo">↶</button>
     <button onclick="redo()" class="btn btn-redo">↷</button>
-    <button onclick="window.print()" class="btn btn-print">🖨 PDF</button>
+    <button onclick="window.print()" class="btn btn-print">🖨️ PDF</button>
     <button onclick="exportarExcelConColores()" class="btn btn-excel">💾 Excel</button>
-    <button onclick="borrarProgreso()" class="btn btn-clear">🗑</button>
+    <button onclick="borrarProgreso()" class="btn btn-clear">🗑️</button>
 </div>
 
 <script>
     let rowsData = [];
     let activeCols = [];
     let checkedIndices = new Set();
-    let specialNotes = {}; 
+    let specialNotes = {}; // MEJORA: Almacena las notas especiales
     let currentFileName = "";
     let history = [];
     let historyStep = -1;
@@ -278,8 +278,10 @@
                 if (dA && dE && dA > dE) dateWarning = true;
             }
 
+            // MEJORA DE LÓGICA DE CLASES:
             let rowClass = isCancelled ? "is-cancelled" : (dateWarning ? "date-warning" : (isRepetido ? "is-duplicate" : ""));
-            if (isChecked) rowClass = note ? "is-special-marked" : "checked";
+            if (note) rowClass = "is-special-marked"; // El especial tiene prioridad de color
+            if (isChecked) rowClass += " checked"; // Agrega la clase 'checked' sin quitar la anterior
 
             return `
             <tr id="row-${i}" class="${rowClass}" onclick="showConfirm(${i})">
@@ -293,7 +295,7 @@
                 </td>
                 ${activeCols.map((c, idx) => {
                     let val = row[c];
-                    if(c.toUpperCase().includes("TICKET") && isNotTheFirst) val = "⚠ " + val;
+                    if(c.toUpperCase().includes("TICKET") && isNotTheFirst) val = "⚠️ " + val;
                     return `<td class="${getColStyleClass(c, idx)}">${val || ""}</td>`;
                 }).join('')}
             </tr>`;
