@@ -9,8 +9,8 @@
     <style>
         :root { 
             --ticket-blue: #0d47a1; --orden-blue: #bbdefb; --success-bg: #a5d6a7;  
-            --warning-bg: #ffb74d; /* NARANJA para alertas de fecha */
-            --danger-bg: #ffcdd2; --empty-bg: #fff9c4; 
+            --warning-bg: #ffb74d; --danger-bg: #ffcdd2; --empty-bg: #fff9c4; 
+            --duplicate-bg: #e1bee7; /* MORADO */
             --zebra-gray: #e0e0e0; --border: #bcbcbc;
         }
         
@@ -23,64 +23,44 @@
 
         .upload-area { border: 2px dashed #1a73e8; padding: 12px; text-align: center; border-radius: 8px; cursor: pointer; margin-bottom: 10px; background: #f1f8ff; }
         
-        /* CONTENEDOR CON SCROLL */
-        .table-wrapper { 
-            width: 100%; 
-            max-height: 70vh; 
-            overflow: auto; 
-            border: 1px solid var(--border); 
-            border-radius: 4px; 
-            position: relative;
-        }
+        .table-wrapper { width: 100%; max-height: 70vh; overflow: auto; border: 1px solid var(--border); border-radius: 4px; position: relative; }
+        table { border-collapse: collapse; width: max-content; min-width: 100%; background: white; table-layout: fixed; } 
         
-        table { border-collapse: collapse; width: max-content; min-width: 100%; background: white; } 
-        
-        /* ENCABEZADOS SIEMPRE FIJOS */
         th { 
-            background: #263238; 
-            color: white; 
-            padding: 10px 5px; 
-            font-size: 10px; 
-            text-transform: uppercase; 
-            position: sticky; 
-            top: 0; /* Mantiene el encabezado arriba */
-            z-index: 100; 
+            background: #263238; color: white; padding: 8px 4px; font-size: 9px; 
+            text-transform: uppercase; position: sticky; top: 0; z-index: 100; 
             box-shadow: 0 2px 2px rgba(0,0,0,0.2);
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
         }
 
-        td { 
-            padding: 6px 8px; 
-            border: 1px solid #cfd8dc; 
-            font-size: 12px; 
-            color: #212121; 
-            white-space: nowrap; 
-        }
+        td { padding: 5px 6px; border: 1px solid #cfd8dc; font-size: 11px; color: #212121; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         
-        /* Anchos de columnas */
-        .col-accion { width: 50px; text-align: center; }
-        .col-mini { text-align: center; width: 70px; }
-        .col-ticket { background-color: var(--ticket-blue) !important; color: white !important; font-weight: bold; text-align: center; width: 90px; }
-        .col-orden { background-color: var(--orden-blue) !important; color: #0d47a1 !important; font-weight: bold; text-align: center; width: 95px; }
+        .col-accion { width: 45px !important; text-align: center; }
+        .col-compacta { width: 75px; } /* Ancho reducido solicitado */
+        .col-ticket { background-color: var(--ticket-blue) !important; color: white !important; font-weight: bold; text-align: center; width: 85px; }
+        .col-orden { background-color: var(--orden-blue) !important; color: #0d47a1 !important; font-weight: bold; text-align: center; width: 90px; }
 
         .is-empty { background-color: var(--empty-bg) !important; } 
         tr:nth-child(even) { background-color: var(--zebra-gray); }
         
-        /* LÓGICA DE COLORES */
-        tr.is-cancelled { background-color: var(--danger-bg) !important; }
+        /* LÓGICA DE COLORES Y ESTILOS */
+        tr.is-cancelled { background-color: var(--danger-bg) !important; text-decoration: none !important; } /* Sin subrayado */
         tr.date-warning { background-color: var(--warning-bg) !important; }
-        tr.checked:not(.is-cancelled):not(.date-warning) { background-color: var(--success-bg) !important; }
+        tr.is-duplicate { background-color: var(--duplicate-bg) !important; } 
+        
+        /* El verde solo si no hay alerta */
+        tr.checked:not(.is-cancelled):not(.date-warning):not(.is-duplicate) { 
+            background-color: var(--success-bg) !important; 
+        }
         
         .firma-display { font-family: 'Dancing Script', cursive; font-size: 26px; color: #1a237e; margin-top: 15px; border-top: 1px solid #000; display: inline-block; padding-top: 5px; min-width: 200px; text-align: center; }
-
-        .btn-confirm { display: none; background: #e65100; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; }
-        
+        .btn-confirm { display: none; background: #e65100; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; font-size: 10px; }
         .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #263238; display: flex; padding: 12px 8px; gap: 6px; z-index: 1000; align-items: center; }
         .btn { padding: 14px 5px; border: none; border-radius: 6px; font-weight: bold; color: white; font-size: 13px; flex: 1; cursor: pointer; }
         .btn-undo, .btn-redo { background: #5c6bc0; flex: 0.4; }
         .btn-print { background: #546e7a; }
         .btn-excel { background: #2e7d32; }
         .btn-clear { background: #c62828; flex: 0.3; }
-
         .counter { position: absolute; top: -20px; left: 50%; transform: translateX(-50%); background: #ffd600; color: #000; padding: 2px 15px; border-radius: 10px; font-weight: bold; font-size: 11px; white-space: nowrap; }
 
         @media print {
@@ -95,12 +75,12 @@
 <div class="card">
     <div class="firma-input-container">
         <label>RESPONSABLE:</label>
-        <input type="text" id="nombreResponsable" class="input-text" placeholder="Nombre para la firma..." oninput="updateFirma()">
+        <input type="text" id="nombreResponsable" class="input-text" placeholder="Firma..." oninput="updateFirma()">
     </div>
 
     <div class="upload-area" onclick="document.getElementById('fileIn').click()">
         <input type="file" id="fileIn" accept=".xlsx, .xls, .csv" style="display:none">
-        <h3>📂 Seleccionar Archivo</h3>
+        <h3>📂 Cargar Archivo</h3>
         <span id="fileNameDisplay" style="color:#666; font-size:0.7rem;">(No hay archivo)</span>
     </div>
 
@@ -138,7 +118,7 @@
         const nom = document.getElementById('nombreResponsable').value;
         document.getElementById('displayFirma').innerText = nom;
         document.getElementById('firmaFooter').style.display = nom ? 'block' : 'none';
-        localStorage.setItem('val_firma_v4', nom);
+        localStorage.setItem('val_firma_v9', nom);
     }
 
     function parseToCompare(dateStr) {
@@ -147,16 +127,17 @@
         return p.length === 3 ? new Date(p[2], p[1] - 1, p[0]) : null;
     }
 
-    function getColClass(name) {
+    function getColStyleClass(name, index) {
         let n = name.toUpperCase();
-        if (n.includes("TICKET")) return "col-ticket";
-        if (n.includes("LABORATORIO") || n.includes("ORDEN FINAL")) return "col-orden";
-        if (n === "ESTADO" || n === "CODIGO" || n === "HORA") return "col-mini";
-        return "";
+        let list = [];
+        if (index < 10) list.push("col-compacta");
+        if (n.includes("TICKET")) list.push("col-ticket");
+        if (n.includes("LABORATORIO") || n.includes("ORDEN FINAL")) list.push("col-orden");
+        return list.join(" ");
     }
 
     window.onload = function() {
-        const savedFirma = localStorage.getItem('val_firma_v4');
+        const savedFirma = localStorage.getItem('val_firma_v9');
         if(savedFirma) { document.getElementById('nombreResponsable').value = savedFirma; updateFirma(); }
         const savedData = localStorage.getItem('last_session_data');
         if(savedData) {
@@ -186,7 +167,7 @@
 
     function processData(raw) {
         let hIdx = raw.findIndex(r => r.some(c => String(c).toUpperCase().includes("TICKET")));
-        if(hIdx === -1) return alert("Error: No se encontró la columna TICKET");
+        if(hIdx === -1) return alert("Error: TICKET no encontrado");
         let headerRow = raw[hIdx];
         activeCols = [];
         let map = {};
@@ -226,12 +207,28 @@
         const body = document.getElementById('body');
         if(activeCols.length === 0) return;
 
-        head.innerHTML = `<tr><th class="col-accion">OK</th>${activeCols.map(c => `<th class="${getColClass(c)}">${c}</th>`).join('')}</tr>`;
+        // LÓGICA DE DUPLICADOS PARA ICONO
+        const counts = {};
+        const firstSeenIndex = {}; // Para saber cuál es el primero de cada ticket
+        rowsData.forEach((r, idx) => {
+            const t = String(r.TICKET).trim();
+            if(!counts[t]) {
+                counts[t] = 1;
+                firstSeenIndex[t] = idx;
+            } else {
+                counts[t]++;
+            }
+        });
+
+        head.innerHTML = `<tr><th class="col-accion">OK</th>${activeCols.map((c, i) => `<th class="${getColStyleClass(c, i)}">${c}</th>`).join('')}</tr>`;
         
         body.innerHTML = rowsData.map((row, i) => {
             const isChecked = checkedIndices.has(i);
             const isCancelled = Object.values(row).some(v => String(v).toUpperCase().includes("CANCELADO"));
-            
+            const tVal = String(row.TICKET).trim();
+            const isRepetido = counts[tVal] > 1;
+            const isNotTheFirst = isRepetido && firstSeenIndex[tVal] !== i;
+
             let dateWarning = false;
             const colAgen = activeCols.find(c => c.toUpperCase().includes("AGENDAMIENTO"));
             const colEnvio = activeCols.find(c => c.toUpperCase().includes("ENVIO"));
@@ -241,7 +238,8 @@
                 if (dA && dE && dA > dE) dateWarning = true;
             }
 
-            let rowClass = isCancelled ? "is-cancelled" : (dateWarning ? "date-warning" : (isChecked ? "checked" : ""));
+            let rowClass = isCancelled ? "is-cancelled" : (dateWarning ? "date-warning" : (isRepetido ? "is-duplicate" : ""));
+            if (isChecked) rowClass += " checked";
 
             return `
             <tr id="row-${i}" class="${rowClass}" onclick="showConfirm(${i})">
@@ -249,10 +247,12 @@
                     <button id="btn-c-${i}" class="btn-confirm" onclick="confirmRow(event, ${i})">OK</button>
                     <span id="lbl-${i}">${isChecked ? '✅' : '📑'}</span>
                 </td>
-                ${activeCols.map(c => {
+                ${activeCols.map((c, idx) => {
                     let val = row[c];
                     let isEmpty = (!val || val === "") ? "is-empty" : "";
-                    return `<td class="${getColClass(c)} ${isEmpty}">${val || ""}</td>`;
+                    // Solo poner ⚠️ si es el segundo en adelante
+                    if(c.toUpperCase().includes("TICKET") && isNotTheFirst) val = "⚠️ " + val;
+                    return `<td class="${getColStyleClass(c, idx)} ${isEmpty}">${val || ""}</td>`;
                 }).join('')}
             </tr>`;
         }).join('');
@@ -285,7 +285,7 @@
     function undo() { if (historyStep > 0) { historyStep--; checkedIndices = new Set(JSON.parse(history[historyStep])); render(); } }
     function redo() { if (historyStep < history.length - 1) { historyStep++; checkedIndices = new Set(JSON.parse(history[historyStep])); render(); } }
     function saveProgress() { if(currentFileName) localStorage.setItem('progress_' + currentFileName, JSON.stringify([...checkedIndices])); }
-    function borrarProgreso() { if(confirm("¿Borrar todo el progreso?")) { localStorage.clear(); location.reload(); } }
+    function borrarProgreso() { if(confirm("¿Borrar todo?")) { localStorage.clear(); location.reload(); } }
     function exportarExcel() {
         const sel = [...checkedIndices].map(i => {
             let f = {}; activeCols.forEach(col => { f[col] = rowsData[i][col]; }); return f;
