@@ -5,77 +5,85 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Validador Profesional</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600&display=swap" rel="stylesheet">
     <style>
         :root { 
             --ticket-blue: #0d47a1; 
             --orden-blue: #bbdefb;  
             --success-bg: #a5d6a7;  
-            --warning-bg: #ffcc80; 
+            --warning-bg: #ffb74d; /* Naranja para error de fechas */
             --danger-bg: #ffcdd2; 
-            --empty-bg: #fff9c4; /* Amarillo claro para vacíos */
+            --empty-bg: #fff9c4; 
             --zebra-gray: #e0e0e0; 
             --border: #bcbcbc;
         }
         
         body { font-family: 'Segoe UI', sans-serif; background: #eceff1; margin: 0; padding: 10px; padding-bottom: 110px; }
-        .card { background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); padding: 12px; }
+        .card { background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); padding: 12px; margin-bottom: 10px; }
         
-        .upload-area { border: 2px dashed #1a73e8; padding: 10px; text-align: center; border-radius: 8px; cursor: pointer; margin-bottom: 15px; background: #f1f8ff; display: flex; align-items: center; justify-content: center; gap: 10px; }
-        .upload-area h3 { margin: 0; color: #1a73e8; font-size: 0.9rem; }
-        
+        /* Campo de firma */
+        .firma-input-container { margin-bottom: 15px; display: flex; flex-direction: column; gap: 5px; }
+        .firma-input-container label { font-size: 12px; font-weight: bold; color: #37474f; }
+        .input-text { padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; max-width: 300px; }
+
         .table-wrapper { width: 100%; max-height: 70vh; overflow: auto; border: 1px solid var(--border); border-radius: 4px; }
-        table { border-collapse: collapse; width: 100%; min-width: 900px; background: white; }
+        table { border-collapse: collapse; width: 100%; background: white; min-width: 1000px; }
         
-        th { background: #263238; color: white; padding: 12px 10px; font-size: 11px; text-transform: uppercase; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 2px rgba(0,0,0,0.2); }
-        td { padding: 10px; border: 1px solid #cfd8dc; font-size: 13px; color: #212121; }
+        th { background: #263238; color: white; padding: 6px 2px; font-size: 10px; text-transform: uppercase; position: sticky; top: 0; z-index: 100; }
+        
+        /* Contenedor para que el título largo no ensanche la columna mini */
+        .h-scroll { display: block; overflow-x: auto; white-space: nowrap; width: 100%; scrollbar-width: none; }
+        .h-scroll::-webkit-scrollbar { display: none; }
+
+        td { padding: 8px 4px; border: 1px solid #cfd8dc; font-size: 12px; color: #212121; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* REDUCCIÓN EXTREMA DE COLUMNAS */
+        .col-mini { width: 35px !important; min-width: 35px !important; max-width: 35px !important; text-align: center; font-size: 9px !important; }
+        .col-hora { width: 45px !important; min-width: 45px !important; max-width: 45px !important; text-align: center; }
+        .col-accion { width: 50px !important; min-width: 50px !important; text-align: center; }
+        .col-ticket { width: 90px !important; background-color: var(--ticket-blue) !important; color: white !important; font-weight: bold; text-align: center; }
+        .col-orden-style { background-color: var(--orden-blue) !important; color: #0d47a1 !important; font-weight: bold; text-align: center; }
+
         tr:nth-child(even) { background-color: var(--zebra-gray); }
         
+        /* PRIORIDAD DE COLORES DE ADVERTENCIA (No cambian con el OK) */
         .is-empty { background-color: var(--empty-bg) !important; } 
-        .col-ticket { background-color: var(--ticket-blue) !important; color: white !important; font-weight: bold; text-align: center; }
-        .col-orden { background-color: var(--orden-blue) !important; color: #0d47a1 !important; font-weight: bold; text-align: center; }
-        
         tr.is-cancelled { background-color: var(--danger-bg) !important; }
         tr.date-warning { background-color: var(--warning-bg) !important; }
-        tr.checked { background-color: var(--success-bg) !important; }
         
-        .btn-confirm { display: none; background: #e65100; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 11px; }
+        /* Solo se pone verde si no tiene ninguna advertencia */
+        tr.checked:not(.is-cancelled):not(.has-empty):not(.date-warning) { background-color: var(--success-bg) !important; }
+        
+        /* Firma Estilizada */
+        .firma-display { font-family: 'Dancing Script', cursive; font-size: 26px; color: #1a237e; margin-top: 15px; border-top: 1px solid #000; display: inline-block; padding-top: 5px; min-width: 250px; text-align: center; }
+
         .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #263238; display: flex; padding: 10px; gap: 8px; z-index: 1000; align-items: center; }
         .btn { padding: 12px 8px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; color: white; font-size: 12px; flex: 1; }
-        .btn-undo { background: #5c6bc0; flex: 0.5; }
-        .btn-redo { background: #5c6bc0; flex: 0.5; }
+        .btn-undo, .btn-redo { background: #5c6bc0; flex: 0.4; }
         .btn-print { background: #546e7a; }
         .btn-excel { background: #2e7d32; }
         .btn-clear { background: #c62828; flex: 0.3; }
-
         .counter { position: absolute; top: -22px; left: 50%; transform: translateX(-50%); background: #ffd600; color: #000; padding: 2px 15px; border-radius: 10px; font-weight: bold; font-size: 11px; white-space: nowrap; }
-
-        #print-summary { display: none; margin-bottom: 20px; border: 2px solid #000; padding: 10px; border-radius: 5px; background: #f9f9f9; }
-        .stat-box { display: flex; justify-content: space-around; font-size: 14px; font-weight: bold; }
+        .btn-confirm { display: none; background: #e65100; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 11px; }
 
         @media print {
-            .bottom-bar, .upload-area, .btn-confirm, th:first-child, td:first-child { display: none !important; }
+            .bottom-bar, .upload-area, .firma-input-container, .btn-confirm { display: none !important; }
             .table-wrapper { max-height: none !important; overflow: visible !important; }
-            #print-summary { display: block !important; }
-            th { position: static !important; }
-            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            #firmaFooter { display: block !important; margin-top: 40px; }
         }
     </style>
 </head>
 <body>
 
-<div id="print-summary">
-    <h2 id="report-title">Resumen de Validación</h2>
-    <div class="stat-box">
-        <span id="print-total">Total Pacientes: 0</span>
-        <span id="print-val">Validados: 0</span>
-        <span id="print-pend">Pendientes: 0</span>
-    </div>
-</div>
-
 <div class="card">
-    <div class="upload-area" onclick="document.getElementById('fileIn').click()">
+    <div class="firma-input-container">
+        <label>RESPONSABLE DEL PROCESO:</label>
+        <input type="text" id="nombreResponsable" class="input-text" placeholder="Escriba su nombre..." oninput="updateFirma()">
+    </div>
+
+    <div class="upload-area" onclick="document.getElementById('fileIn').click()" style="border: 2px dashed #1a73e8; padding: 10px; text-align: center; border-radius: 8px; cursor: pointer; margin-bottom: 15px; background: #f1f8ff;">
         <input type="file" id="fileIn" accept=".xlsx, .xls, .csv" style="display:none">
-        <h3>📂 Subir Archivo</h3>
+        <h3 style="margin:0; color:#1a73e8; font-size:0.9rem;">📂 Cargar Archivo del Mes</h3>
         <span id="fileNameDisplay" style="color:#666; font-size:0.7rem;">(Sin cargar)</span>
     </div>
 
@@ -85,12 +93,17 @@
             <tbody id="body"></tbody>
         </table>
     </div>
+
+    <div id="firmaFooter" style="text-align: right; padding: 20px 0;">
+        <div id="displayFirma" class="firma-display"></div>
+        <div style="font-size: 11px; color: #333; font-weight: bold; margin-right: 70px;">Firma del Responsable</div>
+    </div>
 </div>
 
 <div class="bottom-bar">
     <div id="count" class="counter">0 de 0 OK</div>
-    <button onclick="undo()" class="btn btn-undo" title="Deshacer">↶</button>
-    <button onclick="redo()" class="btn btn-redo" title="Rehacer">↷</button>
+    <button onclick="undo()" class="btn btn-undo">↶</button>
+    <button onclick="redo()" class="btn btn-redo">↷</button>
     <button onclick="window.print()" class="btn btn-print">🖨️ Imprimir</button>
     <button onclick="exportarExcel()" class="btn btn-excel">💾 Excel</button>
     <button onclick="borrarProgreso()" class="btn btn-clear">🗑️</button>
@@ -104,20 +117,39 @@
     let history = [];
     let historyStep = -1;
 
+    function updateFirma() {
+        const nom = document.getElementById('nombreResponsable').value;
+        document.getElementById('displayFirma').innerText = nom;
+        localStorage.setItem('validador_firma_nombre', nom);
+    }
+
+    // Procesa fechas en formato texto DD/MM/YYYY para comparar
+    function parseDateStr(str) {
+        if (!str) return null;
+        if (str instanceof Date) return str;
+        const p = String(str).split('/');
+        return p.length === 3 ? new Date(p[2], p[1] - 1, p[0]) : null;
+    }
+
+    function getCellClass(name) {
+        let n = name.toUpperCase();
+        if (n.includes("TICKET")) return "col-ticket";
+        if (n === "ESTADO" || n === "CODIGO" || n.includes("ORDEN FINAL") || n.includes("ORDEN LABORATORIO")) return "col-mini";
+        if (n === "HORA") return "col-hora";
+        return "";
+    }
+
     window.onload = function() {
+        const savedFirma = localStorage.getItem('validador_firma_nombre');
+        if(savedFirma) { document.getElementById('nombreResponsable').value = savedFirma; updateFirma(); }
         const savedData = localStorage.getItem('last_session_data');
-        const savedFile = localStorage.getItem('last_session_file');
-        const savedCols = localStorage.getItem('last_session_cols');
-        
-        if(savedData && savedFile && savedCols) {
+        if(savedData) {
             rowsData = JSON.parse(savedData);
-            currentFileName = savedFile;
-            activeCols = JSON.parse(savedCols);
-            document.getElementById('fileNameDisplay').innerText = currentFileName + " (Recuperado)";
+            currentFileName = localStorage.getItem('last_session_file');
+            activeCols = JSON.parse(localStorage.getItem('last_session_cols'));
+            document.getElementById('fileNameDisplay').innerText = currentFileName + " (Sesión anterior)";
             const savedProgress = localStorage.getItem('progress_' + currentFileName);
             checkedIndices = savedProgress ? new Set(JSON.parse(savedProgress)) : new Set();
-            history = [JSON.stringify([...checkedIndices])];
-            historyStep = 0;
             render();
         }
     };
@@ -129,7 +161,6 @@
         document.getElementById('fileNameDisplay').innerText = currentFileName;
         const reader = new FileReader();
         reader.onload = (evt) => {
-            // MEJORA: Leer fechas correctamente desde el origen
             const wb = XLSX.read(new Uint8Array(evt.target.result), {type: 'array', cellDates: true, dateNF: 'dd/mm/yyyy'});
             const raw = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header: 1, defval: ""});
             processData(raw);
@@ -137,33 +168,9 @@
         reader.readAsArrayBuffer(file);
     });
 
-    // MEJORA: Formateador de fecha ultra-robusto para evitar cambios
-    function formatSafeDate(val) {
-        if (!val) return "";
-        if (val instanceof Date) {
-            // Ajuste para evitar desfases de horas
-            let d = val.getDate().toString().padStart(2, '0');
-            let m = (val.getMonth() + 1).toString().padStart(2, '0');
-            let a = val.getFullYear();
-            return `${d}/${m}/${a}`;
-        }
-        if (typeof val === 'string' && val.includes('-')) {
-            const p = val.split('T')[0].split('-');
-            if(p.length === 3) return `${p[2]}/${p[1]}/${p[0]}`;
-        }
-        return val;
-    }
-
-    function parseToCompare(dateStr) {
-        if (!dateStr) return null;
-        const p = dateStr.split('/');
-        return p.length === 3 ? new Date(p[2], p[1] - 1, p[0]) : null;
-    }
-
     function processData(raw) {
         let hIdx = raw.findIndex(r => r.some(c => String(c).toUpperCase().includes("TICKET")));
         if(hIdx === -1) return alert("No se encontró columna TICKET");
-
         let headerRow = raw[hIdx];
         activeCols = [];
         let map = {};
@@ -171,7 +178,6 @@
             let name = String(c).trim().replace(/\n/g, " ");
             if(name !== "") { activeCols.push(name); map[name] = i; }
         });
-
         rowsData = [];
         raw.slice(hIdx + 1).forEach(row => {
             if(!row[map["TICKET"]]) return;
@@ -180,8 +186,10 @@
                 let obj = {};
                 activeCols.forEach(col => {
                     let val = row[map[col]];
-                    if(col.toUpperCase().includes("FECHA")) {
-                        val = formatSafeDate(val);
+                    if(col.toUpperCase().includes("FECHA") && val instanceof Date) {
+                        let d = val.getDate().toString().padStart(2, '0');
+                        let m = (val.getMonth() + 1).toString().padStart(2, '0');
+                        val = `${d}/${m}/${val.getFullYear()}`;
                     }
                     obj[col] = val;
                 });
@@ -189,13 +197,11 @@
                 rowsData.push(obj);
             });
         });
-
         localStorage.setItem('last_session_data', JSON.stringify(rowsData));
         localStorage.setItem('last_session_file', currentFileName);
         localStorage.setItem('last_session_cols', JSON.stringify(activeCols));
         checkedIndices = new Set();
-        history = [JSON.stringify([...checkedIndices])];
-        historyStep = 0;
+        addToHistory();
         render();
     }
 
@@ -204,52 +210,52 @@
         const body = document.getElementById('body');
         if(activeCols.length === 0) return;
 
-        head.innerHTML = `<tr><th>Acción</th>${activeCols.map(c => `<th>${c}</th>`).join('')}</tr>`;
+        head.innerHTML = `<tr><th class="col-accion">OK</th>${activeCols.map(c => `
+            <th class="${getCellClass(c)}"><div class="h-scroll">${c}</div></th>
+        `).join('')}</tr>`;
         
         body.innerHTML = rowsData.map((row, i) => {
             const isChecked = checkedIndices.has(i);
-            let rowClass = "";
             const isCancelled = Object.values(row).some(v => String(v).toUpperCase().includes("CANCELADO"));
-            if (isCancelled) rowClass = "is-cancelled";
-
-            if (!isCancelled) {
-                const colAgendamiento = activeCols.find(c => c.toUpperCase().includes("AGENDAMIENTO"));
-                const colEnvio = activeCols.find(c => c.toUpperCase().includes("ENVIO RESULTADOS"));
-                if (colAgendamiento && colEnvio) {
-                    const dAgen = parseToCompare(row[colAgendamiento]);
-                    const dEnv = parseToCompare(row[colEnvio]);
-                    if (dAgen && dEnv && dAgen > dEnv) rowClass = "date-warning";
-                }
+            const hasEmpty = activeCols.some(c => row[c] === "" || row[c] === null || row[c] === undefined);
+            
+            // Lógica de alerta naranja de fechas
+            let dateWarning = false;
+            const cAgen = activeCols.find(c => c.toUpperCase().includes("AGENDAMIENTO"));
+            const cEnv = activeCols.find(c => c.toUpperCase().includes("ENVIO"));
+            if(cAgen && cEnv) {
+                const dA = parseDateStr(row[cAgen]);
+                const dE = parseDateStr(row[cEnv]);
+                if(dA && dE && dA > dE) dateWarning = true;
             }
 
+            let classes = [];
+            if (isChecked) classes.push("checked");
+            if (isCancelled) classes.push("is-cancelled");
+            if (hasEmpty) classes.push("has-empty");
+            if (dateWarning) classes.push("date-warning");
+
             return `
-            <tr id="row-${i}" class="${isChecked ? 'checked' : rowClass}" onclick="showConfirm(${i})">
-                <td style="text-align:center;">
-                    <button id="btn-c-${i}" class="btn-confirm" onclick="confirmRow(event, ${i})">OK?</button>
+            <tr class="${classes.join(' ')}" onclick="showConfirm(${i})">
+                <td class="col-accion">
+                    <button id="btn-c-${i}" class="btn-confirm" onclick="confirmRow(event, ${i})">OK</button>
                     <span id="lbl-${i}">${isChecked ? '✅' : '📑'}</span>
                 </td>
                 ${activeCols.map(c => {
                     let val = row[c];
-                    let emptyClass = (val === "" || val === undefined || val === null) ? "is-empty" : "";
-                    // MEJORA: Incluir ORDEN FINAL en el resaltado azul
-                    let cls = (c.toUpperCase() === "TICKET") ? "col-ticket" : 
-                              (c.toUpperCase().includes("LABORATORIO") || c.toUpperCase().includes("ORDEN FINAL") ? "col-orden" : "");
-                    return `<td class="${cls} ${emptyClass}">${val || ""}</td>`;
+                    let cls = getCellClass(c);
+                    if (c.toUpperCase().includes("ORDEN")) cls += " col-orden-style";
+                    let isEmptyCell = (val === "" || val === null || val === undefined) ? "is-empty" : "";
+                    return `<td class="${cls} ${isEmptyCell}">${val || ""}</td>`;
                 }).join('')}
             </tr>`;
         }).join('');
-        saveProgress();
         updateCounter();
+        saveProgress();
     }
 
     function updateCounter() {
-        const total = rowsData.length;
-        const val = checkedIndices.size;
-        document.getElementById('count').innerText = `${val} de ${total} validados`;
-        document.getElementById('print-total').innerText = `Total Pacientes: ${total}`;
-        document.getElementById('print-val').innerText = `Validados (OK): ${val}`;
-        document.getElementById('print-pend').innerText = `Pendientes: ${total - val}`;
-        document.getElementById('report-title').innerText = "Reporte: " + currentFileName;
+        document.getElementById('count').innerText = `${checkedIndices.size} de ${rowsData.length} validados`;
     }
 
     function showConfirm(i) {
@@ -263,34 +269,23 @@
         }
     }
 
-    function confirmRow(e, i) {
-        e.stopPropagation();
-        checkedIndices.add(i);
-        addToHistory();
-        render();
+    function confirmRow(e, i) { e.stopPropagation(); checkedIndices.add(i); addToHistory(); render(); }
+    function addToHistory() { 
+        const s = JSON.stringify([...checkedIndices]); 
+        if (s === history[historyStep]) return;
+        history = history.slice(0, historyStep + 1); history.push(s); historyStep++; 
     }
-
-    function addToHistory() {
-        const state = JSON.stringify([...checkedIndices]);
-        if (state === history[historyStep]) return;
-        history = history.slice(0, historyStep + 1);
-        history.push(state);
-        historyStep++;
-    }
-
     function undo() { if (historyStep > 0) { historyStep--; checkedIndices = new Set(JSON.parse(history[historyStep])); render(); } }
     function redo() { if (historyStep < history.length - 1) { historyStep++; checkedIndices = new Set(JSON.parse(history[historyStep])); render(); } }
     function saveProgress() { if(currentFileName) localStorage.setItem('progress_' + currentFileName, JSON.stringify([...checkedIndices])); }
-    function borrarProgreso() { if(confirm("¿Borrar todo?")) { localStorage.clear(); location.reload(); } }
+    function borrarProgreso() { if(confirm("¿Borrar todo el progreso y caché?")) { localStorage.clear(); location.reload(); } }
 
     function exportarExcel() {
         if(checkedIndices.size === 0) return alert("No hay datos validados");
-        const selected = [...checkedIndices].map(i => {
-            let filteredRow = {};
-            activeCols.forEach(col => { filteredRow[col] = rowsData[i][col]; });
-            return filteredRow;
+        const sel = [...checkedIndices].map(i => {
+            let f = {}; activeCols.forEach(c => f[c] = rowsData[i][c]); return f;
         });
-        const ws = XLSX.utils.json_to_sheet(selected);
+        const ws = XLSX.utils.json_to_sheet(sel);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Validados");
         XLSX.writeFile(wb, "VALIDADO_" + currentFileName);
