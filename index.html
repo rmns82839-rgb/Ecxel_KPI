@@ -218,14 +218,39 @@
             let name = String(c).trim().replace(/\n/g, " ");
             if(name !== "") { activeCols.push(name); map[name] = i; }
         });
+
         rowsData = [];
+        // Variables para la lógica de herencia de bloques
+        let lastDoc = "";
+        let lastOrden = "";
+        let lastHora = "";
+
         raw.slice(hIdx + 1).forEach(row => {
             if(!row[map["TICKET"]]) return;
+
+            // Lógica para detectar si es el mismo paciente y orden (Bloque)
+            let currentDoc = String(row[map["DOCUMENTO"]] || "");
+            let currentOrden = String(row[map["LABORATORIO"]] || row[map["ORDEN FINAL"]] || "");
+            let currentHoraRaw = row[map["HORA"]] || "";
+
+            // Si el documento y la orden se repiten, heredamos la hora anterior
+            if(currentDoc !== "" && currentDoc === lastDoc && currentOrden === lastOrden) {
+                currentHoraRaw = lastHora;
+            } else {
+                // Si es un paciente/orden nuevo, guardamos sus datos para los siguientes
+                lastDoc = currentDoc;
+                lastOrden = currentOrden;
+                lastHora = currentHoraRaw;
+            }
+
             let tickets = String(row[map["TICKET"]]).split(/\s+/).filter(t => t.length > 2);
             tickets.forEach(t => {
                 let obj = {};
                 activeCols.forEach(col => {
                     let val = row[map[col]];
+                    // Aplicamos la hora heredada o la original
+                    if(col.toUpperCase().includes("HORA")) val = currentHoraRaw;
+                    
                     if(col.toUpperCase().includes("FECHA") && val instanceof Date) {
                         let d = val.getDate().toString().padStart(2, '0');
                         let m = (val.getMonth() + 1).toString().padStart(2, '0');
@@ -358,8 +383,8 @@
         document.getElementById(`lbl-${i}`).style.display = 'none';
     }
 
-    function confirmRow(e, i, isSpecial) { 
-        e.stopPropagation(); 
+    function confirmRow(event, i, isSpecial) { 
+        event.stopPropagation(); 
         if(isSpecial) {
             const nota = prompt("Ingrese nota para el caso especial:");
             if(!nota) { render(); return; }
