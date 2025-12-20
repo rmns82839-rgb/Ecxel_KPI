@@ -11,7 +11,7 @@
             --ticket-blue: #0d47a1; 
             --orden-blue: #bbdefb;  
             --success-bg: #a5d6a7;  
-            --warning-bg: #ffb74d; /* Naranja para error de fechas */
+            --warning-bg: #ffb74d; 
             --danger-bg: #ffcdd2; 
             --empty-bg: #fff9c4; 
             --zebra-gray: #e0e0e0; 
@@ -21,42 +21,41 @@
         body { font-family: 'Segoe UI', sans-serif; background: #eceff1; margin: 0; padding: 10px; padding-bottom: 110px; }
         .card { background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); padding: 12px; margin-bottom: 10px; }
         
-        /* Campo de firma */
         .firma-input-container { margin-bottom: 15px; display: flex; flex-direction: column; gap: 5px; }
         .firma-input-container label { font-size: 12px; font-weight: bold; color: #37474f; }
-        .input-text { padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 100%; max-width: 300px; }
+        .input-text { padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; max-width: 300px; }
 
         .table-wrapper { width: 100%; max-height: 70vh; overflow: auto; border: 1px solid var(--border); border-radius: 4px; }
-        table { border-collapse: collapse; width: 100%; background: white; min-width: 1000px; }
+        table { border-collapse: collapse; width: 100%; min-width: 1000px; background: white; table-layout: auto; }
         
-        th { background: #263238; color: white; padding: 6px 2px; font-size: 10px; text-transform: uppercase; position: sticky; top: 0; z-index: 100; }
-        
-        /* Contenedor para que el título largo no ensanche la columna mini */
+        th { background: #263238; color: white; padding: 12px 5px; font-size: 10px; text-transform: uppercase; position: sticky; top: 0; z-index: 100; }
         .h-scroll { display: block; overflow-x: auto; white-space: nowrap; width: 100%; scrollbar-width: none; }
         .h-scroll::-webkit-scrollbar { display: none; }
 
         td { padding: 8px 4px; border: 1px solid #cfd8dc; font-size: 12px; color: #212121; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-        /* REDUCCIÓN EXTREMA DE COLUMNAS */
-        .col-mini { width: 35px !important; min-width: 35px !important; max-width: 35px !important; text-align: center; font-size: 9px !important; }
-        .col-hora { width: 45px !important; min-width: 45px !important; max-width: 45px !important; text-align: center; }
+        
+        /* Columnas Mini */
+        .col-mini { width: 40px !important; min-width: 40px !important; text-align: center; font-size: 9px !important; }
+        .col-hora { width: 50px !important; min-width: 50px !important; text-align: center; }
         .col-accion { width: 50px !important; min-width: 50px !important; text-align: center; }
-        .col-ticket { width: 90px !important; background-color: var(--ticket-blue) !important; color: white !important; font-weight: bold; text-align: center; }
-        .col-orden-style { background-color: var(--orden-blue) !important; color: #0d47a1 !important; font-weight: bold; text-align: center; }
+        .col-ticket { background-color: var(--ticket-blue) !important; color: white !important; font-weight: bold; text-align: center; }
+        .col-orden { background-color: var(--orden-blue) !important; color: #0d47a1 !important; font-weight: bold; text-align: center; }
+        
+        /* Celdas vacías solo color si la fila no tiene otro color */
+        .is-empty-cell { background-color: var(--empty-bg); } 
 
         tr:nth-child(even) { background-color: var(--zebra-gray); }
         
-        /* PRIORIDAD DE COLORES DE ADVERTENCIA (No cambian con el OK) */
-        .is-empty { background-color: var(--empty-bg) !important; } 
+        /* COLORES DE FILA */
         tr.is-cancelled { background-color: var(--danger-bg) !important; }
         tr.date-warning { background-color: var(--warning-bg) !important; }
         
-        /* Solo se pone verde si no tiene ninguna advertencia */
-        tr.checked:not(.is-cancelled):not(.has-empty):not(.date-warning) { background-color: var(--success-bg) !important; }
+        /* El VERDE tiene prioridad si no es rojo o naranja */
+        tr.checked:not(.is-cancelled):not(.date-warning) { background-color: var(--success-bg) !important; }
         
-        /* Firma Estilizada */
         .firma-display { font-family: 'Dancing Script', cursive; font-size: 26px; color: #1a237e; margin-top: 15px; border-top: 1px solid #000; display: inline-block; padding-top: 5px; min-width: 250px; text-align: center; }
 
+        .btn-confirm { display: none; background: #e65100; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 11px; }
         .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #263238; display: flex; padding: 10px; gap: 8px; z-index: 1000; align-items: center; }
         .btn { padding: 12px 8px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; color: white; font-size: 12px; flex: 1; }
         .btn-undo, .btn-redo { background: #5c6bc0; flex: 0.4; }
@@ -64,12 +63,11 @@
         .btn-excel { background: #2e7d32; }
         .btn-clear { background: #c62828; flex: 0.3; }
         .counter { position: absolute; top: -22px; left: 50%; transform: translateX(-50%); background: #ffd600; color: #000; padding: 2px 15px; border-radius: 10px; font-weight: bold; font-size: 11px; white-space: nowrap; }
-        .btn-confirm { display: none; background: #e65100; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 11px; }
 
         @media print {
             .bottom-bar, .upload-area, .firma-input-container, .btn-confirm { display: none !important; }
             .table-wrapper { max-height: none !important; overflow: visible !important; }
-            #firmaFooter { display: block !important; margin-top: 40px; }
+            #firmaFooter { display: block !important; }
         }
     </style>
 </head>
@@ -83,7 +81,7 @@
 
     <div class="upload-area" onclick="document.getElementById('fileIn').click()" style="border: 2px dashed #1a73e8; padding: 10px; text-align: center; border-radius: 8px; cursor: pointer; margin-bottom: 15px; background: #f1f8ff;">
         <input type="file" id="fileIn" accept=".xlsx, .xls, .csv" style="display:none">
-        <h3 style="margin:0; color:#1a73e8; font-size:0.9rem;">📂 Cargar Archivo del Mes</h3>
+        <h3 style="margin:0; color:#1a73e8; font-size:0.9rem;">📂 Cargar Archivo</h3>
         <span id="fileNameDisplay" style="color:#666; font-size:0.7rem;">(Sin cargar)</span>
     </div>
 
@@ -94,7 +92,7 @@
         </table>
     </div>
 
-    <div id="firmaFooter" style="text-align: right; padding: 20px 0;">
+    <div id="firmaFooter" style="text-align: right; padding: 20px 0; display: none;">
         <div id="displayFirma" class="firma-display"></div>
         <div style="font-size: 11px; color: #333; font-weight: bold; margin-right: 70px;">Firma del Responsable</div>
     </div>
@@ -120,14 +118,13 @@
     function updateFirma() {
         const nom = document.getElementById('nombreResponsable').value;
         document.getElementById('displayFirma').innerText = nom;
+        document.getElementById('firmaFooter').style.display = nom ? 'block' : 'none';
         localStorage.setItem('validador_firma_nombre', nom);
     }
 
-    // Procesa fechas en formato texto DD/MM/YYYY para comparar
-    function parseDateStr(str) {
-        if (!str) return null;
-        if (str instanceof Date) return str;
-        const p = String(str).split('/');
+    function parseToCompare(dateStr) {
+        if (!dateStr) return null;
+        const p = String(dateStr).split('/');
         return p.length === 3 ? new Date(p[2], p[1] - 1, p[0]) : null;
     }
 
@@ -147,7 +144,7 @@
             rowsData = JSON.parse(savedData);
             currentFileName = localStorage.getItem('last_session_file');
             activeCols = JSON.parse(localStorage.getItem('last_session_cols'));
-            document.getElementById('fileNameDisplay').innerText = currentFileName + " (Sesión anterior)";
+            document.getElementById('fileNameDisplay').innerText = currentFileName;
             const savedProgress = localStorage.getItem('progress_' + currentFileName);
             checkedIndices = savedProgress ? new Set(JSON.parse(savedProgress)) : new Set();
             render();
@@ -161,7 +158,7 @@
         document.getElementById('fileNameDisplay').innerText = currentFileName;
         const reader = new FileReader();
         reader.onload = (evt) => {
-            const wb = XLSX.read(new Uint8Array(evt.target.result), {type: 'array', cellDates: true, dateNF: 'dd/mm/yyyy'});
+            const wb = XLSX.read(new Uint8Array(evt.target.result), {type: 'array', cellDates: true});
             const raw = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header: 1, defval: ""});
             processData(raw);
         };
@@ -170,32 +167,25 @@
 
     function processData(raw) {
         let hIdx = raw.findIndex(r => r.some(c => String(c).toUpperCase().includes("TICKET")));
-        if(hIdx === -1) return alert("No se encontró columna TICKET");
+        if(hIdx === -1) return;
         let headerRow = raw[hIdx];
         activeCols = [];
-        let map = {};
-        headerRow.forEach((c, i) => {
+        headerRow.forEach((c) => {
             let name = String(c).trim().replace(/\n/g, " ");
-            if(name !== "") { activeCols.push(name); map[name] = i; }
+            if(name !== "") activeCols.push(name);
         });
-        rowsData = [];
-        raw.slice(hIdx + 1).forEach(row => {
-            if(!row[map["TICKET"]]) return;
-            let tickets = String(row[map["TICKET"]]).split(/\s+/).filter(t => t.length > 2);
-            tickets.forEach(t => {
-                let obj = {};
-                activeCols.forEach(col => {
-                    let val = row[map[col]];
-                    if(col.toUpperCase().includes("FECHA") && val instanceof Date) {
-                        let d = val.getDate().toString().padStart(2, '0');
-                        let m = (val.getMonth() + 1).toString().padStart(2, '0');
-                        val = `${d}/${m}/${val.getFullYear()}`;
-                    }
-                    obj[col] = val;
-                });
-                obj.TICKET = t;
-                rowsData.push(obj);
+        rowsData = raw.slice(hIdx + 1).filter(r => r.some(c => c !== "")).map(row => {
+            let obj = {};
+            activeCols.forEach((col, i) => {
+                let val = row[i];
+                if(col.toUpperCase().includes("FECHA") && val instanceof Date) {
+                    let d = val.getDate().toString().padStart(2, '0');
+                    let m = (val.getMonth() + 1).toString().padStart(2, '0');
+                    val = `${d}/${m}/${val.getFullYear()}`;
+                }
+                obj[col] = val;
             });
+            return obj;
         });
         localStorage.setItem('last_session_data', JSON.stringify(rowsData));
         localStorage.setItem('last_session_file', currentFileName);
@@ -216,23 +206,21 @@
         
         body.innerHTML = rowsData.map((row, i) => {
             const isChecked = checkedIndices.has(i);
-            const isCancelled = Object.values(row).some(v => String(v).toUpperCase().includes("CANCELADO"));
-            const hasEmpty = activeCols.some(c => row[c] === "" || row[c] === null || row[c] === undefined);
+            const isCancelled = String(row["ESTADO"] || "").toUpperCase().includes("CANCELADO");
             
-            // Lógica de alerta naranja de fechas
+            // Alerta Naranja (Fechas)
             let dateWarning = false;
             const cAgen = activeCols.find(c => c.toUpperCase().includes("AGENDAMIENTO"));
             const cEnv = activeCols.find(c => c.toUpperCase().includes("ENVIO"));
             if(cAgen && cEnv) {
-                const dA = parseDateStr(row[cAgen]);
-                const dE = parseDateStr(row[cEnv]);
+                const dA = parseToCompare(row[cAgen]);
+                const dE = parseToCompare(row[cEnv]);
                 if(dA && dE && dA > dE) dateWarning = true;
             }
 
             let classes = [];
             if (isChecked) classes.push("checked");
             if (isCancelled) classes.push("is-cancelled");
-            if (hasEmpty) classes.push("has-empty");
             if (dateWarning) classes.push("date-warning");
 
             return `
@@ -244,9 +232,13 @@
                 ${activeCols.map(c => {
                     let val = row[c];
                     let cls = getCellClass(c);
-                    if (c.toUpperCase().includes("ORDEN")) cls += " col-orden-style";
-                    let isEmptyCell = (val === "" || val === null || val === undefined) ? "is-empty" : "";
-                    return `<td class="${cls} ${isEmptyCell}">${val || ""}</td>`;
+                    if (c.toUpperCase().includes("ORDEN") || c.toUpperCase().includes("LABORATORIO")) cls += " col-orden";
+                    
+                    // Solo pintamos amarillo celdas CRÍTICAS vacías (Ticket, Documento, Nombre)
+                    let critical = ["TICKET", "DOCUMENTO", "NOMBRE"];
+                    let isEmpty = (val === "" || val === null) && critical.some(k => c.toUpperCase().includes(k));
+                    
+                    return `<td class="${cls} ${isEmpty ? 'is-empty-cell' : ''}">${val || ""}</td>`;
                 }).join('')}
             </tr>`;
         }).join('');
@@ -255,7 +247,7 @@
     }
 
     function updateCounter() {
-        document.getElementById('count').innerText = `${checkedIndices.size} de ${rowsData.length} validados`;
+        document.getElementById('count').innerText = `${checkedIndices.size} de ${rowsData.length} OK`;
     }
 
     function showConfirm(i) {
@@ -272,23 +264,21 @@
     function confirmRow(e, i) { e.stopPropagation(); checkedIndices.add(i); addToHistory(); render(); }
     function addToHistory() { 
         const s = JSON.stringify([...checkedIndices]); 
-        if (s === history[historyStep]) return;
+        if (historyStep >= 0 && s === history[historyStep]) return;
         history = history.slice(0, historyStep + 1); history.push(s); historyStep++; 
     }
     function undo() { if (historyStep > 0) { historyStep--; checkedIndices = new Set(JSON.parse(history[historyStep])); render(); } }
     function redo() { if (historyStep < history.length - 1) { historyStep++; checkedIndices = new Set(JSON.parse(history[historyStep])); render(); } }
     function saveProgress() { if(currentFileName) localStorage.setItem('progress_' + currentFileName, JSON.stringify([...checkedIndices])); }
-    function borrarProgreso() { if(confirm("¿Borrar todo el progreso y caché?")) { localStorage.clear(); location.reload(); } }
-
+    function borrarProgreso() { if(confirm("¿Borrar todo?")) { localStorage.clear(); location.reload(); } }
     function exportarExcel() {
-        if(checkedIndices.size === 0) return alert("No hay datos validados");
         const sel = [...checkedIndices].map(i => {
             let f = {}; activeCols.forEach(c => f[c] = rowsData[i][c]); return f;
         });
         const ws = XLSX.utils.json_to_sheet(sel);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Validados");
-        XLSX.writeFile(wb, "VALIDADO_" + currentFileName);
+        XLSX.writeFile(wb, "REPORTE_" + currentFileName);
     }
 </script>
 </body>
