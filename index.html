@@ -3,55 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Validador Profesional Fijo</title>
+    <title>Validador Profesional - Fidelidad Total</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600&display=swap" rel="stylesheet">
     <style>
         :root { 
             --ticket-blue: #0d47a1; --orden-blue: #bbdefb; --success-bg: #a5d6a7;  
             --warning-bg: #ffb74d; --danger-bg: #ffcdd2; --empty-bg: #fff9c4; 
-            --duplicate-bg: #e1bee7; /* MORADO */
-            --zebra-gray: #e0e0e0; --border: #bcbcbc;
+            --duplicate-bg: #e1bee7; --zebra-gray: #e0e0e0; --border: #bcbcbc;
         }
         
         body { font-family: 'Segoe UI', sans-serif; background: #eceff1; margin: 0; padding: 5px; padding-bottom: 110px; }
         .card { background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); padding: 8px; }
         
         .firma-input-container { margin-bottom: 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-        .firma-input-container label { font-size: 11px; font-weight: bold; color: #37474f; }
         .input-text { padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; flex-grow: 1; max-width: 300px; }
-
         .upload-area { border: 2px dashed #1a73e8; padding: 12px; text-align: center; border-radius: 8px; cursor: pointer; margin-bottom: 10px; background: #f1f8ff; }
         
         .table-wrapper { width: 100%; max-height: 70vh; overflow: auto; border: 1px solid var(--border); border-radius: 4px; position: relative; }
         table { border-collapse: collapse; width: max-content; min-width: 100%; background: white; table-layout: fixed; } 
         
         th { 
-            background: #263238; color: white; padding: 8px 4px; font-size: 9px; 
+            background: #263238 !important; color: white !important; padding: 8px 4px; font-size: 9px; 
             text-transform: uppercase; position: sticky; top: 0; z-index: 100; 
             box-shadow: 0 2px 2px rgba(0,0,0,0.2);
-            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            -webkit-print-color-adjust: exact;
         }
 
         td { padding: 5px 6px; border: 1px solid #cfd8dc; font-size: 11px; color: #212121; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         
         .col-accion { width: 45px !important; text-align: center; }
-        .col-compacta { width: 75px; } /* Ancho reducido solicitado */
+        .col-compacta { width: 75px; }
         .col-ticket { background-color: var(--ticket-blue) !important; color: white !important; font-weight: bold; text-align: center; width: 85px; }
         .col-orden { background-color: var(--orden-blue) !important; color: #0d47a1 !important; font-weight: bold; text-align: center; width: 90px; }
 
         .is-empty { background-color: var(--empty-bg) !important; } 
         tr:nth-child(even) { background-color: var(--zebra-gray); }
         
-        /* LÓGICA DE COLORES Y ESTILOS */
-        tr.is-cancelled { background-color: var(--danger-bg) !important; text-decoration: none !important; } /* Sin subrayado */
+        /* COLORES FIJOS */
+        tr.is-cancelled { background-color: var(--danger-bg) !important; text-decoration: none !important; }
         tr.date-warning { background-color: var(--warning-bg) !important; }
         tr.is-duplicate { background-color: var(--duplicate-bg) !important; } 
-        
-        /* El verde solo si no hay alerta */
-        tr.checked:not(.is-cancelled):not(.date-warning):not(.is-duplicate) { 
-            background-color: var(--success-bg) !important; 
-        }
+        tr.checked:not(.is-cancelled):not(.date-warning):not(.is-duplicate) { background-color: var(--success-bg) !important; }
         
         .firma-display { font-family: 'Dancing Script', cursive; font-size: 26px; color: #1a237e; margin-top: 15px; border-top: 1px solid #000; display: inline-block; padding-top: 5px; min-width: 200px; text-align: center; }
         .btn-confirm { display: none; background: #e65100; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; font-size: 10px; }
@@ -67,6 +62,7 @@
             .bottom-bar, .upload-area, .firma-input-container, .btn-confirm { display: none !important; }
             .table-wrapper { max-height: none !important; overflow: visible !important; }
             #firmaFooter { display: block !important; }
+            tr, td, th { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
     </style>
 </head>
@@ -74,14 +70,14 @@
 
 <div class="card">
     <div class="firma-input-container">
-        <label>RESPONSABLE:</label>
-        <input type="text" id="nombreResponsable" class="input-text" placeholder="Firma..." oninput="updateFirma()">
+        <label style="font-size: 11px; font-weight: bold;">RESPONSABLE:</label>
+        <input type="text" id="nombreResponsable" class="input-text" placeholder="Escriba su nombre..." oninput="updateFirma()">
     </div>
 
     <div class="upload-area" onclick="document.getElementById('fileIn').click()">
         <input type="file" id="fileIn" accept=".xlsx, .xls, .csv" style="display:none">
         <h3>📂 Cargar Archivo</h3>
-        <span id="fileNameDisplay" style="color:#666; font-size:0.7rem;">(No hay archivo)</span>
+        <span id="fileNameDisplay" style="color:#666; font-size:0.7rem;">(No hay archivo seleccionado)</span>
     </div>
 
     <div class="table-wrapper">
@@ -101,8 +97,8 @@
     <div id="count" class="counter">0/0 OK</div>
     <button onclick="undo()" class="btn btn-undo">↶</button>
     <button onclick="redo()" class="btn btn-redo">↷</button>
-    <button onclick="window.print()" class="btn btn-print">🖨️</button>
-    <button onclick="exportarExcel()" class="btn btn-excel">💾 Excel</button>
+    <button onclick="window.print()" class="btn btn-print">🖨️ Imprimir</button>
+    <button onclick="exportarExcelConColores()" class="btn btn-excel">💾 Excel Color</button>
     <button onclick="borrarProgreso()" class="btn btn-clear">🗑️</button>
 </div>
 
@@ -118,7 +114,7 @@
         const nom = document.getElementById('nombreResponsable').value;
         document.getElementById('displayFirma').innerText = nom;
         document.getElementById('firmaFooter').style.display = nom ? 'block' : 'none';
-        localStorage.setItem('val_firma_v9', nom);
+        localStorage.setItem('val_firma_v10', nom);
     }
 
     function parseToCompare(dateStr) {
@@ -137,7 +133,7 @@
     }
 
     window.onload = function() {
-        const savedFirma = localStorage.getItem('val_firma_v9');
+        const savedFirma = localStorage.getItem('val_firma_v10');
         if(savedFirma) { document.getElementById('nombreResponsable').value = savedFirma; updateFirma(); }
         const savedData = localStorage.getItem('last_session_data');
         if(savedData) {
@@ -207,17 +203,12 @@
         const body = document.getElementById('body');
         if(activeCols.length === 0) return;
 
-        // LÓGICA DE DUPLICADOS PARA ICONO
         const counts = {};
-        const firstSeenIndex = {}; // Para saber cuál es el primero de cada ticket
+        const firstSeenIndex = {};
         rowsData.forEach((r, idx) => {
             const t = String(r.TICKET).trim();
-            if(!counts[t]) {
-                counts[t] = 1;
-                firstSeenIndex[t] = idx;
-            } else {
-                counts[t]++;
-            }
+            if(!counts[t]) { counts[t] = 1; firstSeenIndex[t] = idx; } 
+            else { counts[t]++; }
         });
 
         head.innerHTML = `<tr><th class="col-accion">OK</th>${activeCols.map((c, i) => `<th class="${getColStyleClass(c, i)}">${c}</th>`).join('')}</tr>`;
@@ -250,7 +241,6 @@
                 ${activeCols.map((c, idx) => {
                     let val = row[c];
                     let isEmpty = (!val || val === "") ? "is-empty" : "";
-                    // Solo poner ⚠️ si es el segundo en adelante
                     if(c.toUpperCase().includes("TICKET") && isNotTheFirst) val = "⚠️ " + val;
                     return `<td class="${getColStyleClass(c, idx)} ${isEmpty}">${val || ""}</td>`;
                 }).join('')}
@@ -261,10 +251,66 @@
         saveProgress();
     }
 
-    function updateCounter() {
-        document.getElementById('count').innerText = `${checkedIndices.size}/${rowsData.length} OK`;
+    async function exportarExcelConColores() {
+        if (checkedIndices.size === 0) return alert("No hay datos validados para exportar.");
+        
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Validados');
+
+        // Definir Columnas
+        worksheet.columns = activeCols.map(col => ({ header: col, key: col, width: 15 }));
+
+        // Estilo Encabezado
+        worksheet.getRow(1).eachCell(cell => {
+            cell.fill = { type: 'pattern', pattern:'solid', fgColor:{argb:'FF263238'} };
+            cell.font = { color: { argb: 'FFFFFFFF' }, bold: true, size: 10 };
+        });
+
+        const counts = {};
+        const firstSeenIndex = {};
+        rowsData.forEach((r, idx) => {
+            const t = String(r.TICKET).trim();
+            if(!counts[t]) { counts[t] = 1; firstSeenIndex[t] = idx; } else { counts[t]++; }
+        });
+
+        // Agregar Filas con su color correspondiente
+        [...checkedIndices].forEach(idx => {
+            const row = rowsData[idx];
+            const isCancelled = Object.values(row).some(v => String(v).toUpperCase().includes("CANCELADO"));
+            const tVal = String(row.TICKET).trim();
+            const isRepetido = counts[tVal] > 1;
+            
+            let dateWarning = false;
+            const colAgen = activeCols.find(c => c.toUpperCase().includes("AGENDAMIENTO"));
+            const colEnvio = activeCols.find(c => c.toUpperCase().includes("ENVIO"));
+            if (colAgen && colEnvio) {
+                const dA = parseToCompare(row[colAgen]);
+                const dE = parseToCompare(row[colEnvio]);
+                if (dA && dE && dA > dE) dateWarning = true;
+            }
+
+            const excelRow = worksheet.addRow(row);
+
+            // Aplicar Color a la fila de Excel según lógica
+            let color = 'FFFFFFFF'; // Blanco por defecto
+            if (isCancelled) color = 'FFFFCDD2'; // Rojo
+            else if (dateWarning) color = 'FFFFB74D'; // Naranja
+            else if (isRepetido) color = 'FFE1BEE7'; // Morado
+            else color = 'FFA5D6A7'; // Verde (ya que está en checkedIndices)
+
+            excelRow.eachCell(cell => {
+                cell.fill = { type: 'pattern', pattern:'solid', fgColor:{argb: color} };
+                cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
+                // Forzar que los números se vean como texto para no perder carácteres
+                cell.numFmt = '@'; 
+            });
+        });
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        saveAs(new Blob([buffer]), "VALIDADO_COLOR_" + currentFileName + ".xlsx");
     }
 
+    function updateCounter() { document.getElementById('count').innerText = `${checkedIndices.size}/${rowsData.length} OK`; }
     function showConfirm(i) {
         document.querySelectorAll('.btn-confirm').forEach(b => b.style.display = 'none');
         document.querySelectorAll('span[id^="lbl-"]').forEach(s => s.style.display = 'inline');
@@ -275,7 +321,6 @@
             document.getElementById(`lbl-${i}`).style.display = 'none';
         }
     }
-
     function confirmRow(e, i) { e.stopPropagation(); checkedIndices.add(i); addToHistory(); render(); }
     function addToHistory() { 
         const state = JSON.stringify([...checkedIndices]);
@@ -286,15 +331,6 @@
     function redo() { if (historyStep < history.length - 1) { historyStep++; checkedIndices = new Set(JSON.parse(history[historyStep])); render(); } }
     function saveProgress() { if(currentFileName) localStorage.setItem('progress_' + currentFileName, JSON.stringify([...checkedIndices])); }
     function borrarProgreso() { if(confirm("¿Borrar todo?")) { localStorage.clear(); location.reload(); } }
-    function exportarExcel() {
-        const sel = [...checkedIndices].map(i => {
-            let f = {}; activeCols.forEach(col => { f[col] = rowsData[i][col]; }); return f;
-        });
-        const ws = XLSX.utils.json_to_sheet(sel);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Validados");
-        XLSX.writeFile(wb, "VALIDADO_" + currentFileName);
-    }
 </script>
 </body>
 </html>
